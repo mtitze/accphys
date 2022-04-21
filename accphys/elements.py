@@ -4,7 +4,7 @@ from lieops import create_coords, construct
 
 class cfm:
     
-    def __init__(self, beta0, components=[0], tilt=0, dim: int=6, **kwargs):
+    def __init__(self, beta0, components=[0], tilt=0, dim: int=6, length=1, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -35,6 +35,7 @@ class cfm:
         self.components = components
         self.tilt = tilt
         self.beta0 = beta0
+        self.length = length
         
         self._hdict = self.calcHamiltonian(**kwargs)
         

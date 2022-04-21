@@ -22,16 +22,16 @@ class beamline:
         
         self.dim = dim0
         self.sequence = sequence
-        if 'lengths' in kwargs.keys():
-            self.set_lengths(lengths=kwargs['lengths'])
-        
-    def set_lengths(self, lengths):
-        n_elements = len(self.sequence)
-        if len(lengths) > 0:
-            assert len(lengths) == n_elements
-        else:
-            lengths = [1]*n_elements
-        self.lengths = lengths
+        self.lengths = [e.length for e in sequence]
+            
+    def __len__(self):
+        return len(self.sequence)
+    
+    def __getitem__(self, key):
+        return self.sequence[key]
+    
+    def __setitem__(self, key, value):
+        self.sequence[key] = value
         
     def calcFlows(self, **kwargs):
         '''
@@ -49,9 +49,6 @@ class beamline:
         **kwargs
             Optional parameters passed to lieops.ops.lie.poly.flow
         '''
-        if not hasattr(self, 'lengths') or 'lengths' in kwargs.keys():
-            self.set_lengths(lengths=kwargs.get('lengths', []))
-            
         n_elements = len(self.sequence)
         t_inp = kwargs.get('t', -1)
                     
@@ -86,10 +83,10 @@ class beamline:
         
         **kwargs
             Optional keyword arguments passed to lieops.ops.lie.combine routine
-        '''
-        
+        '''            
         hamiltonians = [e.hamiltonian for e in self.sequence]
-        self._magnus_series, self._magnus_hamiltonian = combine(*hamiltonians, power=power, **kwargs)
+        self._magnus_series, self._magnus_hamiltonian = combine(*hamiltonians, power=power, 
+                                                                lengths=self.lengths, **kwargs)
         return sum(self._magnus_series.values())
         
         
