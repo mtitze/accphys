@@ -37,7 +37,7 @@ class cfm:
         self.beta0 = beta0
         self.length = length
         
-        self._hdict = self.calcHamiltonian(**kwargs)
+        self._prop = self.calcHamiltonian(**kwargs)
         
         if dim == 6:
             self.to6d()
@@ -50,13 +50,13 @@ class cfm:
         '''
         (Re)set 6d Hamiltonian.
         '''
-        self.hamiltonian = self._hdict['H']
+        self.hamiltonian = self._prop['H']
         
     def to4d(self):
         '''
         Set 4d Hamiltonian by dropping those terms which belong to the (sigma, psigma)-pair.
         '''
-        ham = self._hdict['H']
+        ham = self._prop['H']
         new_values = {}
         for k, v in ham.items():
             if k[2] != 0 or k[5] != 0:
@@ -69,7 +69,7 @@ class cfm:
         '''
         Set 2d Hamiltonian by dropping those terms which belong to the (y, py) and (sigma, psigma)-pairs.
         '''
-        ham = self._hdict['H']
+        ham = self._prop['H']
         new_values = {}
         for k, v in ham.items():
             if k[1] != 0 or k[4] != 0 or k[2] != 0 or k[5] != 0:
@@ -119,16 +119,18 @@ class cfm:
 
         return g
 
-    def calcHamiltonian(self, sqrtexp=2):
+    def calcHamiltonian(self, sqrtexp: int=2, **kwargs):
         '''
         Compute the Hamiltonian of the cfm (without electric fields).
         For the underlying coordinate system and further details see Ref. [1] below.
 
         Parameters
         ----------
-
-        sqrtexp: int, optional
+        sqrtexp or power: int, optional
             Power up to which the square root of the drift should be expanded.
+            
+        **kwargs
+            Optional keyword arguments passed to 'construct' routine.
 
         Returns
         -------
@@ -160,11 +162,12 @@ class cfm:
         Reference(s):
         [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
         '''
+        kwargs['power'] = kwargs.get('power', sqrtexp)
         # Compute the CFM drift part
-        x, y, sigma, px, py, psigma = create_coords(3, cartesian=True)
+        x, y, sigma, px, py, psigma = create_coords(3, cartesian=True, **kwargs)
         one_hateta2 = lambda ps: ((1 + ps*self.beta0**2)**2 - 1 + self.beta0**2)/self.beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
-        drift = construct(sqrt, px, py, psigma, power=sqrtexp) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power sqrtexp
+        drift = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power sqrtexp
         drift.pop((0, 0, 0, 0, 0, 0), None) # remove the constant emerging from the expansion.
 
         # Compute the CFM vector potential

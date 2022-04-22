@@ -2,10 +2,10 @@ from functools import reduce
 
 from lieops import create_coords, combine
 
-def identity(x):
+def f_identity(x):
     return x
 
-def compose(f, g):
+def f_compose(f, g):
     return lambda x: f(g(x))
 
 class beamline:
@@ -33,7 +33,7 @@ class beamline:
     def __setitem__(self, key, value):
         self.sequence[key] = value
         
-    def calcFlows(self, **kwargs):
+    def calcFlows(self, t=-1, **kwargs):
         '''
         Calculate the sequence of Lie-operators exp(:f_n:) for each element f_n in self.sequence.
         
@@ -49,13 +49,9 @@ class beamline:
         **kwargs
             Optional parameters passed to lieops.ops.lie.poly.flow
         '''
-        n_elements = len(self.sequence)
-        t_inp = kwargs.get('t', -1)
-                    
         flows = []
-        for k in range(n_elements):
-            element = self.sequence[k]
-            flows.append(element.hamiltonian.flow(t=t_inp*self.lengths[k], **kwargs))
+        for k in range(len(self)):
+            flows.append(self[k].hamiltonian.flow(t=t*self.lengths[k], **kwargs))
         self.flows = flows
         
     def calcOneTurnMap(self, **kwargs):
@@ -63,8 +59,15 @@ class beamline:
         **kwargs are passed to create_coords routine (e.g. any possible max_power)
         '''
         assert hasattr(self, 'flows'), 'Need to call self.calcFlows first.'
-        xiv = create_coords(self.dim, **kwargs)[:self.dim]
-        composition = reduce(compose, self.flows, identity)
+        xiv = create_coords(self.dim, **kwargs)[:self.dim]        
+        # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
+        # [f0, f1, f2]
+        # will be executed as
+        # f0(f1(f2(z)))
+        # etc.
+        # Since in our beamline the first element in the list should be executed first,
+        # we have to reverse the order here.
+        composition = reduce(f_compose, self.flows[::-1], f_identity)
         self.oneTurnMap = composition(xiv)
         
     def __call__(self, point):
