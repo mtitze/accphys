@@ -2,9 +2,27 @@ import numpy as np
 
 from lieops import create_coords, construct
 
+# N.B. the length of an element will be used only later, when it comes to calculating the flow.
+
+class phaserot:
+    def __init__(self, *tunes, length=1):
+        '''
+        A generic uncoupled phase rotation.
+        
+        Parameters
+        ----------
+        tunes: float
+            Tune(s) defining the phase rotation.
+        '''
+        self.tunes = tunes
+        self.length = length
+        
+        dim = len(tunes)
+        xieta = create_coords(dim=dim)
+        self.hamiltonian = sum([-tunes[k]*xieta[k]*xieta[k + dim] for k in range(dim)])
+
 class cfm:
-    
-    def __init__(self, beta0, components=[0], tilt=0, dim: int=6, length=1, **kwargs):
+    def __init__(self, beta0, components=[0], tilt=0, length=1, dim: int=6, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -24,8 +42,8 @@ class cfm:
         tilt: float, optional
             The tilt between the dipole component and the higher-order magnet components of the cfm.
             
-        dim: int, optional
-            Set self.hamiltonian to its corresponding form for 6D, 4D or 2D calculations.
+        **kwargs
+            Optional arguments passed to self.calcHamiltonian and self.setHamiltonian.
             
         Reference(s):
         [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
@@ -38,25 +56,44 @@ class cfm:
         self.length = length
         
         self._prop = self.calcHamiltonian(**kwargs)
+        self.setHamiltonian(dim=dim, **kwargs)
         
+    def setHamiltonian(self, dim: int=6, style='full', **kwargs):
+        '''
+        Set self.hamiltonian to requested dimension.
+        
+        Parameters
+        ----------
+        dim: int, optional
+            Dimension of the Hamiltonian to be set. Supported: 6, 4, 2.
+        
+        style: str, optional
+            Name of the key in self._prop denoting the Hamiltonian to be used.
+            Supported options are:
+            'full': use the full Hamiltonian (default)
+            'kick': Only use the Hamiltonian containing field-components (see Eq. (2.36) in Ref. [2])
+            'drift': Only the drift part of the Hamiltonian is used, i.e. all fields switched off.
+        '''
+        ham = self._prop[style]
         if dim == 6:
-            self.to6d()
-        if dim == 4:
-            self.to4d()
-        if dim == 2:
-            self.to2d()
+            self._setHamiltonian6d(ham)
+        elif dim == 4:
+            self._setHamiltonian4d(ham)
+        elif dim == 2:
+            self._setHamiltonian2d(ham)
+        else:
+            raise NotImplementedError(f'No rule for Hamiltonian of dim: {dim}')
         
-    def to6d(self):
+    def _setHamiltonian6d(self, ham):
         '''
-        (Re)set 6d Hamiltonian.
+        Set 6D Hamiltonian.
         '''
-        self.hamiltonian = self._prop['H']
+        self.hamiltonian = ham
         
-    def to4d(self):
+    def _setHamiltonian4d(self, ham):
         '''
         Set 4d Hamiltonian by dropping those terms which belong to the (sigma, psigma)-pair.
         '''
-        ham = self._prop['H']
         new_values = {}
         for k, v in ham.items():
             if k[2] != 0 or k[5] != 0:
@@ -65,11 +102,10 @@ class cfm:
             new_values[new_key] = v
         self.hamiltonian = ham.__class__(values=new_values, dim=2, max_power=ham.max_power)
         
-    def to2d(self):
+    def _setHamiltonian2d(self, ham):
         '''
         Set 2d Hamiltonian by dropping those terms which belong to the (y, py) and (sigma, psigma)-pairs.
         '''
-        ham = self._prop['H']
         new_values = {}
         for k, v in ham.items():
             if k[1] != 0 or k[4] != 0 or k[2] != 0 or k[5] != 0:
@@ -189,9 +225,9 @@ class cfm:
         out = {}
         out['kx'] = kx
         out['ky'] = ky
-        out['H'] = H_full
-        out['H_drift'] = H_drift
-        out['H_field'] = H_field
+        out['full'] = H_full
+        out['drift'] = H_drift
+        out['kick'] = H_field
         out['G'] = G
         out['g'] = g
         return out
