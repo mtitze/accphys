@@ -158,7 +158,8 @@ class cfm:
     def calcHamiltonian(self, sqrtexp: int=2, **kwargs):
         '''
         Compute the Hamiltonian of the cfm (without electric fields).
-        For the underlying coordinate system and further details see Ref. [1] below.
+        For the underlying coordinate system and further details see Refs. [1, 2] below.
+        In particular, the Hamiltonian is given by Eq. (2.16) in Ref. [2].
 
         Parameters
         ----------
@@ -197,14 +198,15 @@ class cfm:
 
         Reference(s):
         [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+        [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
         '''
         kwargs['power'] = kwargs.get('power', sqrtexp)
         # Compute the CFM drift part
         x, y, sigma, px, py, psigma = create_coords(3, cartesian=True, **kwargs)
         one_hateta2 = lambda ps: ((1 + ps*self.beta0**2)**2 - 1 + self.beta0**2)/self.beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
-        drift = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power sqrtexp
-        drift.pop((0, 0, 0, 0, 0, 0), None) # remove the constant emerging from the expansion.
+        drift_s = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power sqrtexp
+        drift_s.pop((0, 0, 0, 0, 0, 0), None) # remove the constant emerging from the expansion.
 
         # Compute the CFM vector potential
         # G = (1 + Kx*x + Ky*y)*A_t near Eq. (2).
@@ -212,16 +214,17 @@ class cfm:
         g = self._g()
         rp = (x + y*1j)/2
         rm = rp.conjugate()
-        G = sum([g[(k, j)]*rp**(k - j)*rm**j for k, j in g.keys()])
+        G = sum([rp**(k - j)*rm**j*g[(k, j)] for k, j in g.keys()]) # need to multiply g[(k, j)] from right in case their entries are jetpoly objects etc. They need to be added as the coefficients of the Lie polynomials. 
 
         # Assemble output Hamiltonians
         out = {}
-        kx = self.components[0].real
-        ky = -self.components[0].imag
+        lamb0 = self.components[0]
+        kx = (lamb0 + lamb0.conjugate())/2 # lamb0.real; .conjugate() works with floats and other objects better than .real etc.
+        ky = (lamb0.conjugate() - lamb0)/2/1j # -lamb0.imag
         # N.B.: Hfull = psigma - (1 + kx*x + ky*y)*drift - G
-        H_drift = psigma - drift
-        H_field = -G - (kx*x + ky*y)*drift
-        H_full = H_field + H_drift
+        H_drift = psigma - drift_s
+        H_field = - drift_s*(x*kx + y*ky) - G
+        H_full = H_drift + H_field
         out = {}
         out['kx'] = kx
         out['ky'] = ky
