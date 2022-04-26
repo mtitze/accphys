@@ -39,6 +39,8 @@ class cfm:
             If K_x = 0 this transverse axis smears out a cone. The ideal trajectory is hereby given by a horizontal
             cut of the cone with a plane.
             
+            Note that additional zeros in the list will cause the routine to compute more orders of the CFM.
+            
         tilt: float, optional
             The tilt between the dipole component and the higher-order magnet components of the cfm.
             
@@ -202,7 +204,7 @@ class cfm:
         '''
         kwargs['power'] = kwargs.get('power', sqrtexp)
         # Compute the CFM drift part
-        x, y, sigma, px, py, psigma = create_coords(3, cartesian=True, **kwargs)
+        x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
         one_hateta2 = lambda ps: ((1 + ps*self.beta0**2)**2 - 1 + self.beta0**2)/self.beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
         drift_s = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power sqrtexp
@@ -214,8 +216,8 @@ class cfm:
         g = self._g()
         rp = (x + y*1j)/2
         rm = rp.conjugate()
-        G = sum([rp**(k - j)*rm**j*g[(k, j)] for k, j in g.keys()]) # need to multiply g[(k, j)] from right in case their entries are jetpoly objects etc. They need to be added as the coefficients of the Lie polynomials. 
-
+        G = sum([rp**(k - j)*rm**j*g[(k, j)] for k, j in g.keys()]) # N.B.: We need to multiply g[(k, j)] from right in case their entries are jetpoly objects etc. They need to be added as the coefficients of the Lie polynomials. 
+        
         # Assemble output Hamiltonians
         out = {}
         lamb0 = self.components[0]

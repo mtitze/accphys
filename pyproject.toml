@@ -7,7 +7,7 @@ license = "GPL v3"
 
 [tool.poetry.dependencies]
 python = "^3.8, <3.11"
-lieops = "^0.1.0"
+lieops = "^0.1.1"
 scipy = "^1.8.0"
 pandas = "^1.4.2"
 matplotlib = "^3.5.1"
