@@ -1,4 +1,5 @@
 from functools import reduce
+from tqdm.auto import tqdm
 
 from lieops import create_coords, combine
 
@@ -50,7 +51,7 @@ class beamline:
             Optional parameters passed to lieops.ops.lie.poly.flow
         '''
         flows = []
-        for k in range(len(self)):
+        for k in tqdm(range(len(self))):
             flows.append(self[k].hamiltonian.flow(t=t*self.lengths[k], **kwargs))
         self.flows = flows
         
