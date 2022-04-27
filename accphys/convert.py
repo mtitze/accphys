@@ -2,7 +2,10 @@ from .beamline import beamline
 from .elements import cfm
 from tqdm.auto import tqdm
 
-def prepare(hdf, position_label='s', length_label='L', position=0, tol=1e-6, **kwargs):
+from latticeadaptor.core import LatticeAdaptor
+import numpy as np
+
+def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, **kwargs):
     '''
     Prepare a given data frame so that there will be no zero-spaces in between two elements.
     
@@ -47,10 +50,7 @@ def prepare(hdf, position_label='s', length_label='L', position=0, tol=1e-6, **k
 
         if pos + length > next_pos + tol:
             # in this case the next element is overlapping the previous element due to a too large length.
-            raise RuntimeError(f"Element {k} at position {pos} with length {length} appears to overlap its successor at position {next_pos}."\
-                               + " Check lattice input and/or 'position' and 'tol' arguments.")
-            
-        #sequence.append(cfm(components=[current_row[label] for label in component_labels], length=length, **kwargs))
+            raise RuntimeError(f"Element at row-index {k}, covering [{pos}, {pos + length}] appears to overlap its successor, beginning at {next_pos}. Check lattice input and/or adjust position: {position} and/or tol: {tol}.")
 
         if pos + length + tol < next_pos:
             # here we have to insert additional drift space in between.
@@ -64,7 +64,7 @@ def prepare(hdf, position_label='s', length_label='L', position=0, tol=1e-6, **k
     return hdf.sort_index().reset_index(drop=True)
 
 
-def toBeamline(hdf, beta0, component_labels=['kx0', 'kx1', 'kx2', 'kx3'], position_label='s', length_label='L', **kwargs):
+def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='L', **kwargs):
     '''
     Construct a beamline from a given lattice.
         
@@ -72,7 +72,7 @@ def toBeamline(hdf, beta0, component_labels=['kx0', 'kx1', 'kx2', 'kx3'], positi
         Keyworded arguments passed to elements. 
     '''
     # Preparation; ensure that no empty space exists between elements (they will be filled with drifts if necesary):
-    hdf = prepare(hdf, position_label=position_label, length_label=length_label, **kwargs)
+    hdf = prepare_df(hdf, position_label=position_label, length_label=length_label, **kwargs)
             
     # group the given elements with respect to the remaining labels & find the uniques among them
     group_labels = [c for c in hdf.columns if c != position_label] # labels by which we distinguish different elements; custom columns may be added to artifically distinguish different element groups
@@ -96,3 +96,45 @@ def toBeamline(hdf, beta0, component_labels=['kx0', 'kx1', 'kx2', 'kx3'], positi
     ordering = list(hdf[group_index_label])
             
     return beamline(*elements, ordering=ordering)
+
+
+def from_madx(filename, beta0, **kwargs):
+    '''
+    Load MAD-X lattice from file, using LatticeAdaptor module, 
+    and construct a beamline object from the data.
+    '''
+    la = LatticeAdaptor()
+    la.load_from_file(filename, ftype='madx')
+    raw_df = la.table
+    
+    # MAD-X specific labels
+    position_label='at'
+    length_label='L'
+    bend_kx_label = 'K0'
+    angle_label = 'ANGLE'
+    component_labels = [bend_kx_label, 'K1', 'K2']
+    
+    if bend_kx_label not in raw_df.columns:
+        # add kx
+        angles = raw_df[angle_label].values
+        lengths = raw_df[length_label].values 
+        valid_indices = np.logical_and((~np.isnan(angles)), lengths > 0)
+        kx = np.zeros(len(raw_df))
+        kx[valid_indices] = angles[valid_indices]/lengths[valid_indices] # r*phi = L; N.B. in Elegant the angles are given in RAD
+        raw_df[bend_kx_label] = kx
+    
+    # drop elements with zero length and uneccesary columns;
+    # N.B. E1 and E2 denote rotation angles of the pole-faces. If they are non-zero,
+    # they are usually half the bend angle (in the rectangular case). We will ignore rectangular
+    # bends for the time being and use s-bends here.
+    columns_oi = [position_label, length_label] + component_labels
+    raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
+        
+    kwargs['position'] = kwargs.get('position', 0.5) # MAD-X tends to denote the position of the elements in the center
+    
+    seq2 = to_beamline(raw_df, beta0=beta0, 
+                      component_labels=component_labels, position_label=position_label,
+                      length_label=length_label, **kwargs)
+    
+    
+    return seq2, raw_df
