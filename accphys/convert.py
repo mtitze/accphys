@@ -14,6 +14,12 @@ def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, 
     hdf: pd.Dataframe
         Pandas dataframe object defining the beam sequence. The dataframe must contain the
         position_label and length_label columns.
+        
+    position_label: str, optional
+        Label denoting the position of the individual elements within the dataframe.
+        
+    length_label: str, optional
+        Label denoting the lengths of the individual elements within the dataframe.
     
     position: float, optional
         Defines the alignment of the elements relative to their actual position.
@@ -22,6 +28,12 @@ def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, 
     
     tol: float, optional
         Tolerance below which we consider the end/start of two adjacent elements to agree with each other.
+        
+    Returns
+    -------
+    Pandas dataframe
+        A dataframe object in which all elements are positioned so that there are no gaps inbetween (drift
+        elements are added accordingly).
     '''
     
     toStartPos = lambda z, length: z - length*position # transform position to start of element.
@@ -67,9 +79,26 @@ def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, 
 def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='L', **kwargs):
     '''
     Construct a beamline from a given lattice.
+    
+    Parameters
+    ----------
+    hdf: Pandas dataframe
+        A Pandas dataframe object containing the position, lengths and field strengths of the individual
+        elements in the beamline.
+        
+    position_label: str, optional
+        Label denoting the position of the individual elements within the dataframe.
+        
+    length_label: str, optional
+        Label denoting the lengths of the individual elements within the dataframe.
         
     **kwargs
-        Keyworded arguments passed to elements. 
+        Keyworded arguments passed to the cfm element.
+        
+    Returns
+    -------
+    beamline
+        A beamline object representing the sequence of elements.
     '''
     # Preparation; ensure that no empty space exists between elements (they will be filled with drifts if necesary):
     hdf = prepare_df(hdf, position_label=position_label, length_label=length_label, **kwargs)
@@ -102,6 +131,26 @@ def from_madx(filename, beta0, **kwargs):
     '''
     Load MAD-X lattice from file, using LatticeAdaptor module, 
     and construct a beamline object from the data.
+    
+    Parameters
+    ----------
+    filename: str
+        The name of the MAD-X lattice to be loaded.
+        
+    beta0: float
+        The realtivistic beta-factor (related to the energy of the beam). This is required later to
+        build the Hamiltonians.
+        
+    **kwargs
+        Optional arguments passed to 'to_beamline' routine.
+        
+    Returns
+    -------
+    beamline
+        A beamline object representing the sequence of elements in the given lattice.
+        
+    Pandas dataframe
+        A Pandas dataframe object, representing the loaded sequence of the lattice.
     '''
     la = LatticeAdaptor()
     la.load_from_file(filename, ftype='madx')
@@ -113,6 +162,7 @@ def from_madx(filename, beta0, **kwargs):
     bend_kx_label = 'K0'
     angle_label = 'ANGLE'
     component_labels = [bend_kx_label, 'K1', 'K2']
+    madx_default_position = 0.5 # MAD-X tends to denote the position of the elements in the center
     
     if bend_kx_label not in raw_df.columns:
         # add kx
@@ -120,7 +170,7 @@ def from_madx(filename, beta0, **kwargs):
         lengths = raw_df[length_label].values 
         valid_indices = np.logical_and((~np.isnan(angles)), lengths > 0)
         kx = np.zeros(len(raw_df))
-        kx[valid_indices] = angles[valid_indices]/lengths[valid_indices] # r*phi = L; N.B. in Elegant the angles are given in RAD
+        kx[valid_indices] = angles[valid_indices]/lengths[valid_indices] # r*phi = L; kx = 1/r
         raw_df[bend_kx_label] = kx
     
     # drop elements with zero length and uneccesary columns;
@@ -130,11 +180,9 @@ def from_madx(filename, beta0, **kwargs):
     columns_oi = [position_label, length_label] + component_labels
     raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
         
-    kwargs['position'] = kwargs.get('position', 0.5) # MAD-X tends to denote the position of the elements in the center
-    
+    # construct the sequence of Lie operators
+    kwargs['position'] = kwargs.get('position', madx_default_position) 
     seq2 = to_beamline(raw_df, beta0=beta0, 
                       component_labels=component_labels, position_label=position_label,
                       length_label=length_label, **kwargs)
-    
-    
     return seq2, raw_df
