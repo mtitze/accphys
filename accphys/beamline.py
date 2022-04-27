@@ -11,28 +11,44 @@ def f_compose(f, g):
 
 class beamline:
     
-    def __init__(self, *sequence, **kwargs):
+    def __init__(self, *elements, **kwargs):
         '''
         Class to model an accelerator beamline.
         '''
         # consistency checks
-        assert len(sequence) > 0
-        assert all([hasattr(e, 'hamiltonian') for e in sequence])
-        dim0 = sequence[0].hamiltonian.dim
-        assert all([e.hamiltonian.dim == dim0 for e in sequence])
+        assert len(elements) > 0
+        assert all([hasattr(e, 'hamiltonian') for e in elements])
+        dim0 = elements[0].hamiltonian.dim
+        assert all([e.hamiltonian.dim == dim0 for e in elements])
         
+        self.elements = list(elements)
+        self.ordering = kwargs.get('ordering', list(range(len(elements))))        
         self.dim = dim0
-        self.sequence = sequence
-        self.lengths = [e.length for e in sequence]
-            
+        
     def __len__(self):
-        return len(self.sequence)
+        return len(self.ordering)
     
     def __getitem__(self, key):
-        return self.sequence[key]
+        return self.elements[self.ordering[key]]
     
     def __setitem__(self, key, value):
-        self.sequence[key] = value
+        if value not in self:
+            self.ordering[key] = len(self.elements)
+            self.elements.append(value)
+        else:
+            index = self.elements.index(value)
+            self.ordering[key] = index
+            
+    def index(self, value):
+        return self.elements.index(value)
+    
+    def append(self, value):
+        if value not in self.elements:
+            index = len(self.elements)
+            self.elements.append(value)
+        else:
+            index = self.elements.index(value)
+        self.ordering.append(index)
         
     def calcFlows(self, t=-1, **kwargs):
         '''
@@ -50,10 +66,8 @@ class beamline:
         **kwargs
             Optional parameters passed to lieops.ops.lie.poly.flow
         '''
-        flows = []
-        for k in tqdm(range(len(self))):
-            flows.append(self[k].hamiltonian.flow(t=t*self.lengths[k], **kwargs))
-        self.flows = flows
+        element_flows = [e.hamiltonian.flow(t=t*e.length, **kwargs) for e in self.elements] # compute the flows of the unique elements
+        self.flows = [element_flows[j] for j in self.ordering]
         
     def calcOneTurnMap(self, **kwargs):
         '''
@@ -88,9 +102,9 @@ class beamline:
         **kwargs
             Optional keyword arguments passed to lieops.ops.lie.combine routine
         '''            
-        hamiltonians = [e.hamiltonian for e in self.sequence]
+        hamiltonians = [e.hamiltonian for e in self]
         self._magnus_series, self._magnus_hamiltonian = combine(*hamiltonians, power=power, 
-                                                                lengths=self.lengths, **kwargs)
+                                                                lengths=[e.length for e in self], **kwargs)
         return sum(self._magnus_series.values())
         
         
