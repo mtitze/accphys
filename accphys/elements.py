@@ -204,7 +204,6 @@ class cfm:
         one_hateta2 = lambda ps: ((1 + ps*self.beta0**2)**2 - 1 + self.beta0**2)/self.beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
         drift_s = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power sqrtexp
-        drift_s.pop((0, 0, 0, 0, 0, 0), None) # remove the constant emerging from the expansion.
 
         # Compute the CFM vector potential
         # G = (1 + Kx*x + Ky*y)*A_t near Eq. (2).
@@ -223,6 +222,12 @@ class cfm:
         H_drift = psigma - drift_s
         H_field = - drift_s*(x*kx + y*ky) - G
         H_full = H_drift + H_field
+        
+        # remove any remaining constants; they do not affect the equations of motion.
+        H_full.pop((0, 0, 0, 0, 0, 0), None)
+        H_drift.pop((0, 0, 0, 0, 0, 0), None)
+        H_field.pop((0, 0, 0, 0, 0, 0), None)
+
         out = {}
         out['kx'] = kx
         out['ky'] = ky
@@ -258,7 +263,6 @@ class multipole(cfm):
             # Eq. (1.8) in Ref. [2], using y=0 here. The c_n are just the components of the cfm.
             # Therefore:
             components[n - 1] = str
-            
         cfm.__init__(self, components=components, *args, **kwargs)
         
 class drift(multipole):

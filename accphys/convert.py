@@ -181,7 +181,7 @@ def from_madx(filename, beta0, **kwargs):
     # if they exist, add skew-values to the components; TODO: check & verify this numerically
     for j in range(1, 3):
         if f'K{j}S' in raw_df.columns:
-            raw_df[f'K{j}'] = raw_df[f'K{j}'].values - raw_df[f'K{j}S']*1j
+            raw_df[f'K{j}'] = raw_df[f'K{j}'].values + raw_df[f'K{j}S']*1j
     raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
     
     # in MAD-X the respective values are the integrated field strengths. Therefore (TO BE CHECKED; TODO)
