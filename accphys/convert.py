@@ -163,7 +163,7 @@ def from_madx(filename, beta0, **kwargs):
     angle_label = 'ANGLE'
     component_labels = [bend_kx_label, 'K1', 'K2']
     madx_default_position = 0.5 # MAD-X tends to denote the position of the elements in the center
-    
+
     if bend_kx_label not in raw_df.columns:
         # add kx
         angles = raw_df[angle_label].values
@@ -178,7 +178,15 @@ def from_madx(filename, beta0, **kwargs):
     # they are usually half the bend angle (in the rectangular case). We will ignore rectangular
     # bends for the time being and use s-bends here.
     columns_oi = [position_label, length_label] + component_labels
+    # if they exist, add skew-values to the components; TODO: check & verify this numerically
+    for j in range(1, 3):
+        if f'K{j}S' in raw_df.columns:
+            raw_df[f'K{j}'] = raw_df[f'K{j}'].values - raw_df[f'K{j}S']*1j
     raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
+    
+    # in MAD-X the respective values are the integrated field strengths. Therefore (TO BE CHECKED; TODO)
+    #for j in range(1, 3):
+    #    raw_df[f'K{j}'] = raw_df[f'K{j}'].values/raw_df[length_label]/fac
         
     # construct the sequence of Lie operators
     kwargs['position'] = kwargs.get('position', madx_default_position) 

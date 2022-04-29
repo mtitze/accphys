@@ -4,6 +4,10 @@ from lieops import create_coords, construct
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
+# Reference(s):
+# [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+# [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
+
 class phaserot:
     def __init__(self, *tunes, length=1):
         '''
@@ -46,10 +50,6 @@ class cfm:
             
         **kwargs
             Optional arguments passed to self.calcHamiltonian and self.setHamiltonian.
-            
-        Reference(s):
-        [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
-        [2] M. Titze: "Space Charge Modeling at the Integer Resonances for the CERN PS and SPS", PhD Thesis (2019)
         '''
         assert 0 < beta0 and beta0 < 1
         self.components = components
@@ -84,7 +84,7 @@ class cfm:
         elif dim == 2:
             self._setHamiltonian2d(ham)
         else:
-            raise NotImplementedError(f'No rule for Hamiltonian of dim: {dim}')
+            raise NotImplementedError(f'No rule for Hamiltonian with dimension: {dim}')
         
     def _setHamiltonian6d(self, ham):
         '''
@@ -110,7 +110,7 @@ class cfm:
         '''
         new_values = {}
         for k, v in ham.items():
-            if k[1] != 0 or k[4] != 0 or k[2] != 0 or k[5] != 0:
+            if k[1] != 0 or k[2] != 0 or k[4] != 0 or k[5] != 0:
                 continue
             new_key = (k[0], k[3])
             new_values[new_key] = v
@@ -197,10 +197,6 @@ class cfm:
                 The G-components in Ref. [1]
 
             So that H = H_drift + H_field.
-
-        Reference(s):
-        [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
-        [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
         '''
         kwargs['power'] = kwargs.get('power', sqrtexp)
         # Compute the CFM drift part
@@ -236,49 +232,53 @@ class cfm:
         out['G'] = G
         out['g'] = g
         return out
-        
+
 class multipole(cfm):
-    def __init__(self, fx=0, fy=0, n: int=0, *args, **kwargs):
+    def __init__(self, str=0, n: int=0, *args, **kwargs):
         '''
-        Model of a multipole with n poles.
+        Model of a multipole with exactly 2*n pole faces.
         
         Parameters
         ----------
-        fx: float, optional
-            x-component of the field strength with respect to the transverse (y=0)-plane.
-            
-        fy: float, optional
-            y-component of the field strength with respect to the transverse (y=0)-plane.
-            
         n: int, optional
-            Define the number of poles. The resulting magnet will have 2*n poles.
-            
+            Defines the number 2*n of pole faces.
+
+         
+        expansion: int, optional
+            An additional parameter (>= n) by which one can control the number of terms in the expansion of the field.
         '''
-        if n == 0:
+        if n == 0: # drift case
             components = [0]
         else: # n > 0
-            components = [0]*n
-            components[n - 1] = fx - fy*1j
+            components = [0]*max([2, n]) # max([2, n]) because if n = 1 (the dipole case) then, since (1 + Kx*x + Ky*y)*(By + 1j*Bx) = - \partial_x G + 1j*\partial_y G (see p. 53 top in Ref. [2]), G must be of order <= 2.
+            # The real and imaginary part of 'str' are understood to define the normal and skew components of the sextupole.
+            # These components are given with respect to the x-axis (tilt 0) and an axis which is rotated relative to x by an angle of pi/2/n.
+            #
+            # Equivalently, these components are given by the real and imaginary parts of c_n with B_y + i B_x = c_n*(x + iy)**(n - 1), see e.g.
+            # Eq. (1.8) in Ref. [2], using y=0 here. The c_n are just the components of the cfm.
+            # Therefore:
+            components[n - 1] = str
+            
         cfm.__init__(self, components=components, *args, **kwargs)
         
 class drift(multipole):
     def __init__(self, *args, **kwargs):
-        multipole.__init__(self, n=0, *args, **kwargs)
+        multipole.__init__(self, *args, n=0, **kwargs)
         
 class dipole(multipole):
     def __init__(self, *args, **kwargs):
-        multipole.__init__(self, n=1, *args, **kwargs)
+        multipole.__init__(self, *args, n=1, **kwargs)
         
 class quadrupole(multipole):
     def __init__(self, *args, **kwargs):
-        multipole.__init__(self, n=2, *args, **kwargs)
+        multipole.__init__(self, *args, n=2, **kwargs)
         
 class sextupole(multipole):
     def __init__(self, *args, **kwargs):
-        multipole.__init__(self, n=3, *args, **kwargs)
+        multipole.__init__(self, *args, n=3, **kwargs)
     
 class octupole(multipole):
     def __init__(self, *args, **kwargs):
-        multipole.__init__(self, n=4, *args, **kwargs)
+        multipole.__init__(self, *args, n=4, **kwargs)
 
         
