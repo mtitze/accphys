@@ -1,5 +1,6 @@
 import numpy as np
 
+from njet.functions import cos
 from lieops import create_coords, construct
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
@@ -301,27 +302,23 @@ class octupole(multipole):
     def __init__(self, *args, **kwargs):
         multipole.__init__(self, *args, n=4, **kwargs)
         
-        
-from njet.functions import cos
-        
-class rfgen(hard_edge_element):
+class rfc(hard_edge_element):
     
     def __init__(self, voltage, phase, frequency, beta0, *args, **kwargs):
         '''
-        A simple RF cavity model based on a cylindrical cavity.
+        A generic RF cavity based on the simplest of all models.
                 
         Reference(s):
         [1] A. Wolski: Beam Dynamics in High Energy Particle Accelerators.
         '''
         assert 0 < beta0 and beta0 < 1
-        
         self.voltage = voltage
         self.phase = phase
         self.frequency = frequency # Actually, translated to: k = 2*np.pi/constants.speed_of_light*1/T
         self.beta0 = beta0
         hard_edge_element.__init__(self, *args, beta0=beta0, **kwargs)
         
-    def calcHamiltonian(self, cosexp=10, **kwargs):
+    def calcHamiltonian(self, p=10, **kwargs):
         '''
         The Hamiltonian of a simplified RF cavity., see Ref. [1], Eq. (3.138) p. 112.
         '''
@@ -329,9 +326,10 @@ class rfgen(hard_edge_element):
         x, y, sigma, px, py, psigma = self._prop['coords']
         #k = 2*np.pi*self.frequency/constants.speed_of_light # 2.40483/radius # Eq. (3.132) in [1] and earlier: omega = k/c
         #hamiltonian = construct(cos, sigma/beta0*-k + self.phase, **kwargs)*self.voltage
-        hamiltonian = construct(cos, -sigma/self.beta0*self.frequency + self.phase, power=cosexp, **kwargs)*self.voltage/float(np.pi)
+        rf_potential = construct(cos, -sigma/self.beta0*self.frequency + self.phase, power=p, **kwargs)*self.voltage/float(np.pi)
+        hamiltonian = self._prop['full'] - rf_potential
         hamiltonian.pop((0, 0, 0, 0, 0, 0), None) # remove any constant term
-        self.full_hamiltonian = self._prop['full'] - hamiltonian
+        self.full_hamiltonian = hamiltonian
         
         
         
