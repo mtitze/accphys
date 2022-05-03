@@ -2,14 +2,54 @@ import numpy as np
 
 from lieops import create_coords, construct
 
+from scipy import constants
+
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
 # Reference(s):
 # [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
 # [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
 
-class phaserot:
-    def __init__(self, *tunes, length=1):
+
+class hard_edge_element:
+    
+    def __init__(self, length=1, **kwargs):
+        '''
+        Class to model the Hamiltonian of a 6D hard-edge element.
+        '''
+        self.length = length
+        
+    def setHamiltonian(self, *projection, **kwargs):
+        '''
+        Set Hamiltonian by dropping components associated with terms not in given list.
+        
+        self.hamiltonian will be updated.
+        
+        Parameters
+        ----------
+        projection: int
+            The indices of the coordinates of interest. Must reach from 0 to self.full_hamiltonian.dim.
+            If there are no arguments given, then the default Hamiltonian will be restored.
+        '''
+        # consistency checks
+        new_dim = len(projection)
+        ham = self.full_hamiltonian
+        if new_dim == 0: # default: 6D Hamiltonian
+            projection = range(ham.dim)
+            new_dim = ham.dim
+        assert new_dim <= ham.dim and max(projection) < ham.dim, 'Number of spatial dimensions too large.'
+        projection = list(projection) + [p + ham.dim for p in projection] # the eta-components duplicate the indices.
+        complement = [k for k in range(2*ham.dim) if not k in projection]
+        new_values = {}
+        for k, v in ham.items():
+            if any([k[p] != 0 for p in complement]): # only keep those coefficients which do not couple to other directions
+                continue
+            new_values[tuple([k[p] for p in projection])] = v
+        self.hamiltonian = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
+        
+        
+class phaserot(hard_edge_element):
+    def __init__(self, *tunes, **kwargs):
         '''
         A generic uncoupled phase rotation.
         
@@ -18,15 +58,16 @@ class phaserot:
         tunes: float
             Tune(s) defining the phase rotation.
         '''
-        self.tunes = tunes
-        self.length = length
-        
+        self.tunes = tunes        
         dim = len(tunes)
         xieta = create_coords(dim=dim)
-        self.hamiltonian = sum([-tunes[k]*xieta[k]*xieta[k + dim] for k in range(dim)])
+        self.full_hamiltonian = sum([-tunes[k]*xieta[k]*xieta[k + dim] for k in range(dim)])
+        self.setHamiltonian(**kwargs)
+        hard_edge_element.__init__(self, **kwargs)
 
-class cfm:
-    def __init__(self, beta0, components=[0], tilt=0, length=1, dim: int=6, **kwargs):
+        
+class cfm(hard_edge_element):
+    def __init__(self, beta0, components=[0], tilt=0, *args, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -55,20 +96,16 @@ class cfm:
         self.components = components
         self.tilt = tilt
         self.beta0 = beta0
-        self.length = length
+        hard_edge_element.__init__(self, **kwargs)
+        self.calcHamiltonian(**kwargs)
+        self.setHamiltonian(*args, **kwargs)
         
-        self._prop = self.calcHamiltonian(**kwargs)
-        self.setHamiltonian(dim=dim, **kwargs)
-        
-    def setHamiltonian(self, dim: int=6, style='full', **kwargs):
+    def setHamiltonian(self, *args, **kwargs):
         '''
         Set self.hamiltonian to requested dimension.
         
         Parameters
         ----------
-        dim: int, optional
-            Dimension of the Hamiltonian to be set. Supported: 6, 4, 2.
-        
         style: str, optional
             Name of the key in self._prop denoting the Hamiltonian to be used.
             Supported options are:
@@ -76,45 +113,10 @@ class cfm:
             'kick': Only use the Hamiltonian containing field-components (see Eq. (2.36) in Ref. [2])
             'drift': Only the drift part of the Hamiltonian is used, i.e. all fields switched off.
         '''
-        ham = self._prop[style]
-        if dim == 6:
-            self._setHamiltonian6d(ham)
-        elif dim == 4:
-            self._setHamiltonian4d(ham)
-        elif dim == 2:
-            self._setHamiltonian2d(ham)
-        else:
-            raise NotImplementedError(f'No rule for Hamiltonian with dimension: {dim}')
-        
-    def _setHamiltonian6d(self, ham):
-        '''
-        Set 6D Hamiltonian.
-        '''
-        self.hamiltonian = ham
-        
-    def _setHamiltonian4d(self, ham):
-        '''
-        Set 4d Hamiltonian by dropping those terms which belong to the (sigma, psigma)-pair.
-        '''
-        new_values = {}
-        for k, v in ham.items():
-            if k[2] != 0 or k[5] != 0:
-                continue
-            new_key = (k[0], k[1], k[3], k[4])
-            new_values[new_key] = v
-        self.hamiltonian = ham.__class__(values=new_values, dim=2, max_power=ham.max_power)
-        
-    def _setHamiltonian2d(self, ham):
-        '''
-        Set 2d Hamiltonian by dropping those terms which belong to the (y, py) and (sigma, psigma)-pairs.
-        '''
-        new_values = {}
-        for k, v in ham.items():
-            if k[1] != 0 or k[2] != 0 or k[4] != 0 or k[5] != 0:
-                continue
-            new_key = (k[0], k[3])
-            new_values[new_key] = v
-        self.hamiltonian = ham.__class__(values=new_values, dim=1, max_power=ham.max_power)
+        if not hasattr(self, 'style') or 'style' in kwargs.keys():
+            self.style = kwargs.get('style', 'full')
+        self.full_hamiltonian = self._prop[self.style]
+        hard_edge_element.setHamiltonian(self, *args, **kwargs)
     
     def _g(self):
         '''
@@ -236,7 +238,8 @@ class cfm:
         out['kick'] = H_field
         out['G'] = G
         out['g'] = g
-        return out
+        self._prop = out
+        self.full_hamiltonian = H_full
 
 class multipole(cfm):
     def __init__(self, str=0, n: int=0, *args, **kwargs):
@@ -284,5 +287,44 @@ class sextupole(multipole):
 class octupole(multipole):
     def __init__(self, *args, **kwargs):
         multipole.__init__(self, *args, n=4, **kwargs)
+        
+        
+from njet.functions import cos
+        
+class rfgen(hard_edge_element):
+    
+    def __init__(self, voltage, phase, frequency, beta0, **kwargs):
+        '''
+        A simple RF cavity model based on a cylindrical cavity.
+                
+        Reference(s):
+        [1] A. Wolski: Beam Dynamics in High Energy Particle Accelerators.
+        '''
+        assert 0 < beta0 and beta0 < 1
+        
+        self.voltage = voltage
+        self.phase = phase
+        self.frequency = frequency
+        self.beta0 = beta0
+        hard_edge_element.__init__(self, **kwargs)
+        self.calcHamiltonian(**kwargs)
+        self.setHamiltonian(**kwargs)
+        
+    def calcHamiltonian(self, epower, **kwargs):
+        '''
+        The Hamiltonian of a simplified RF cavity., see Ref. [1], Eq. (3.138) p. 112.
+        '''
+        beta0 = kwargs.get('beta0', self.beta0)
+        
+        x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
+    
+        k = 2*np.pi*self.frequency/constants.speed_of_light # 2.40483/radius # Eq. (3.132) in [1] and earlier: omega = k/c
+        hamiltonian = construct(cos, sigma/beta0*-k + self.phase, power=epower, **kwargs)*self.voltage
+        hamiltonian.pop((0, 0, 0, 0, 0, 0), None) # remove any constant term
+        self.full_hamiltonian = hamiltonian
+        
+        
+        
+    
 
         

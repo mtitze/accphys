@@ -4,6 +4,7 @@ from tqdm.auto import tqdm
 
 from latticeadaptor.core import LatticeAdaptor
 import numpy as np
+from njet.jet import factorials
 
 def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, **kwargs):
     '''
@@ -185,8 +186,9 @@ def from_madx(filename, beta0, **kwargs):
     raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
     
     # in MAD-X the respective values are the integrated field strengths. Therefore (TO BE CHECKED; TODO)
-    #for j in range(1, 3):
-    #    raw_df[f'K{j}'] = raw_df[f'K{j}'].values/raw_df[length_label]/fac
+    facts = factorials(3)
+    for j in range(1, 3):
+        raw_df[f'K{j}'] = raw_df[f'K{j}'].values/facts[j]
         
     # construct the sequence of Lie operators
     kwargs['position'] = kwargs.get('position', madx_default_position) 

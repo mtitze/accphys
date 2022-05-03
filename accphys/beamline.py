@@ -19,11 +19,10 @@ class beamline:
         assert len(elements) > 0
         assert all([hasattr(e, 'hamiltonian') for e in elements])
         dim0 = elements[0].hamiltonian.dim
-        assert all([e.hamiltonian.dim == dim0 for e in elements])
+        assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
         
         self.elements = list(elements)
-        self.ordering = kwargs.get('ordering', list(range(len(elements))))        
-        self.dim = dim0
+        self.ordering = kwargs.get('ordering', list(range(len(elements))))
         
     def __len__(self):
         return len(self.ordering)
@@ -50,6 +49,19 @@ class beamline:
             index = self.elements.index(value)
         self.ordering.append(index)
         
+    def lengths(self):
+        '''
+        Return the lengths of the individual elements.
+        '''
+        return [e.length for e in self]
+        
+    def setHamiltonians(self, *args, **kwargs):
+        '''
+        Project the Hamiltonians of the individual elements to specific dimensions.
+        '''
+        for e in self.elements:
+            e.setHamiltonian(*args, **kwargs)
+        
     def calcFlows(self, t=-1, **kwargs):
         '''
         Calculate the sequence of Lie-operators exp(:f_n:) for each element f_n in self.sequence.
@@ -74,7 +86,8 @@ class beamline:
         **kwargs are passed to create_coords routine (e.g. any possible max_power)
         '''
         assert hasattr(self, 'flows'), 'Need to call self.calcFlows first.'
-        xiv = create_coords(self.dim, **kwargs)[:self.dim]        
+        dim0 = self.elements[0].hamiltonian.dim
+        xiv = create_coords(dim0, **kwargs)[:dim0]        
         # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
