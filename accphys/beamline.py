@@ -54,6 +54,9 @@ class beamline:
         Return the lengths of the individual elements.
         '''
         return [e.length for e in self]
+    
+    def dim(self):
+        return self[0].hamiltonian.dim
         
     def setHamiltonians(self, *args, **kwargs):
         '''
