@@ -16,14 +16,48 @@ class hard_edge_element:
         Class to model the Hamiltonian of a 6D hard-edge element.
         '''
         self.length = length
-        self.calcHamiltonian(*args, **kwargs)
-        self.setHamiltonian(**kwargs)
+        if 'beta0' in kwargs.keys():
+            self.calcHamiltonian(*args, **kwargs)
+        if hasattr(self, 'full_hamiltonian'):
+            self.setHamiltonian(**kwargs)
+        
+    def calcHamiltonian(self, beta0, sqrtexp: int=2, **kwargs):
+        '''
+        Compute the Hamiltonian of a drift.
+        For the underlying coordinate system and further details see Refs. [1, 2] below.
+        In particular, the Hamiltonian is given by Eq. (2.16) in Ref. [2].
+
+        Parameters
+        ----------
+        sqrtexp or power: int, optional
+            Power up to which the square root of the drift should be expanded. 
+        '''
+        assert 0 < beta0 and beta0 < 1
+        kwargs['power'] = kwargs.get('power', sqrtexp)
+        # Compute the CFM drift part
+        x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
+        one_hateta2 = lambda ps: ((1 + ps*beta0**2)**2 - 1 + beta0**2)/beta0**2 # Eqs. (15c) and (17) in Ref. [1]
+        sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
+        drift_s = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power
+        hamiltonian = psigma - drift_s
+        hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
+        self.full_hamiltonian = hamiltonian
+        self._prop = {}
+        self._prop['beta0'] = beta0
+        self._prop['sqrtexp'] = sqrtexp
+        self._prop['drift'] = hamiltonian
+        self._prop['drift_sqrt'] = drift_s
+        self._prop['full'] = hamiltonian
+        self._prop['coords'] = x, y, sigma, px, py, psigma
         
     def setHamiltonian(self, *projection, **kwargs):
         '''
         Set Hamiltonian by dropping components associated with terms not in given list.
         
         self.hamiltonian will be updated.
+        
+        !! Attention !!
+        After this operation it may become necessary to re-caclulate flows and the one-turn map again.
         
         Parameters
         ----------
@@ -47,35 +81,15 @@ class hard_edge_element:
             new_values[tuple([k[p] for p in projection])] = v
         self.hamiltonian = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
         
-    def calcHamiltonian(self, beta0, sqrtexp: int=2, **kwargs):
-        '''
-        Compute the Hamiltonian of a drift.
-        For the underlying coordinate system and further details see Refs. [1, 2] below.
-        In particular, the Hamiltonian is given by Eq. (2.16) in Ref. [2].
-
-        Parameters
-        ----------
-        sqrtexp or power: int, optional
-            Power up to which the square root of the drift should be expanded. 
-        '''
-        kwargs['power'] = kwargs.get('power', sqrtexp)
-        # Compute the CFM drift part
-        x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
-        one_hateta2 = lambda ps: ((1 + ps*beta0**2)**2 - 1 + beta0**2)/beta0**2 # Eqs. (15c) and (17) in Ref. [1]
-        sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
-        drift_s = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power
-        hamiltonian = psigma - drift_s
-        hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
-        self.full_hamiltonian = hamiltonian
-        self._prop = {}
-        self._prop['drift'] = hamiltonian
-        self._prop['drift_sqrt'] = drift_s
-        self._prop['full'] = hamiltonian
-        self._prop['coords'] = x, y, sigma, px, py, psigma
-        
+    def copy(self):
+        result = self.__class__(length=self.length)
+        # copy all the fields
+        for field, value in self.__dict__.items():
+            setattr(result, field, value)
+        return result
         
 class phaserot(hard_edge_element):
-    def __init__(self, *tunes, **kwargs):
+    def __init__(self, *tunes, length=1, **kwargs):
         '''
         A generic uncoupled phase rotation.
         
@@ -85,16 +99,20 @@ class phaserot(hard_edge_element):
             Tune(s) defining the phase rotation.
         '''
         self.tunes = tunes
-        hard_edge_element.__init__(self, *tunes, **kwargs)
+        self.length = length
+        if len(tunes) > 0:
+            self.calcHamiltonian(*tunes, **kwargs)
+        if hasattr(self, 'full_hamiltonian'):
+            self.setHamiltonian(**kwargs)
         
     def calcHamiltonian(self, *tunes, **kwargs):
         dim = len(tunes)
         xieta = create_coords(dim=dim)
         self.full_hamiltonian = sum([-tunes[k]*xieta[k]*xieta[k + dim] for k in range(dim)])
-
+        
         
 class cfm(hard_edge_element):
-    def __init__(self, beta0, components=[0], tilt=0, *args, **kwargs):
+    def __init__(self, components=[0], tilt=0, *args, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -119,11 +137,9 @@ class cfm(hard_edge_element):
         **kwargs
             Optional arguments passed to self.calcHamiltonian and self.setHamiltonian.
         '''
-        assert 0 < beta0 and beta0 < 1
         self.components = components
         self.tilt = tilt
-        self.beta0 = beta0
-        hard_edge_element.__init__(self, *args, beta0=beta0, **kwargs)
+        hard_edge_element.__init__(self, *args, **kwargs)
         
     def setHamiltonian(self, *args, **kwargs):
         '''

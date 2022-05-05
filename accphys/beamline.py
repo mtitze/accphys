@@ -21,7 +21,7 @@ class beamline:
         dim0 = elements[0].hamiltonian.dim
         assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
         
-        self.elements = list(elements)
+        self.elements = [e.copy() for e in elements]
         self.ordering = kwargs.get('ordering', list(range(len(elements))))
         
     def __len__(self):
