@@ -1,7 +1,7 @@
 import numpy as np
 
 from njet.functions import cos
-from lieops import create_coords, construct
+from lieops import create_coords, construct, poly
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -91,11 +91,11 @@ class hard_edge_element:
 class phaserot(hard_edge_element):
     def __init__(self, *tunes, length=1, **kwargs):
         '''
-        A generic uncoupled phase rotation.
+        A generic uncoupled phase (space) rotation.
         
         Parameters
         ----------
-        tunes: float
+        tunes: float or array_like
             Tune(s) defining the phase rotation.
         '''
         self.tunes = tunes

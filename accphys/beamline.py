@@ -119,8 +119,8 @@ class beamline:
             Optional keyword arguments passed to lieops.ops.lie.combine routine
         '''            
         hamiltonians = [e.hamiltonian for e in self]
-        self._magnus_series, self._magnus_hamiltonian = combine(*hamiltonians, power=power, 
-                                                                lengths=[e.length for e in self], **kwargs)
+        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
+                                                                                     lengths=[e.length for e in self], **kwargs)
         return sum(self._magnus_series.values())
         
         
