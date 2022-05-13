@@ -96,15 +96,16 @@ def _depsilon(DH, k):
         D[tuple(new + new)] = v*j1[k]
     return D
 
-def getPhaseAdvanceFunc(detuning_dict):
+def getPhaseAdvanceFunc(*deps):
     '''
     Create a function giving the phase advance with respect to the action(s).
     
     Parameters
     ----------
-    detuning_dict: dict
-        The output of detuning routine.
-        
+    deps
+        The output of the _depsilon routine for each direction.
+        Example: deps = *[_depsilon(detuning_dict, k) for k in range(dim)]
+
     Returns
     -------
     callable
@@ -114,8 +115,7 @@ def getPhaseAdvanceFunc(detuning_dict):
     Reference(s):
     [1]: M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019).
     '''
-    dim = len(next(iter(detuning_dict.keys())))//2
-    deps = [_depsilon(detuning_dict, k) for k in range(dim)]
+    dim = len(deps)
     def pa(*action, s: float=1):
         '''
         Compute the phase advance in normal form.

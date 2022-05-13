@@ -154,8 +154,11 @@ class cfm(hard_edge_element):
             'kick': Only use the Hamiltonian containing field-components (see Eq. (2.36) in Ref. [2])
             'drift': Only the drift part of the Hamiltonian is used, i.e. all fields switched off.
         '''
+        supported_styles = ['full', 'kick', 'drift']
         if not hasattr(self, '_style') or 'style' in kwargs.keys():
             self._style = kwargs.get('style', 'full')
+        if not self._style in supported_styles:
+            raise RuntimeError(f"Style '{self._style}' not recognized. Supported styles:\n{supported_styles}")
         self.full_hamiltonian = self._prop[self._style]
         hard_edge_element.setHamiltonian(self, *args, **kwargs)
     
