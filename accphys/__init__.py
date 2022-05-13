@@ -8,4 +8,4 @@ from .convert import to_beamline, from_madx
 
 from .nf import nf
 
-from .plotting import show_contours
+from .plotting import plot_contours
