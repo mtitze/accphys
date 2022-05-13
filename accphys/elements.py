@@ -1,7 +1,7 @@
 import numpy as np
 
 from njet.functions import cos
-from lieops import create_coords, construct, poly
+from lieops import create_coords, construct
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 

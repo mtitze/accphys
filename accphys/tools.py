@@ -73,7 +73,7 @@ def detuning(nfdict):
 def _depsilon(DH, k):
     '''
     Derive a given action-polynomial, represented by a dictionaly-like object,
-    with respect to the k-th action.
+    with respect to the k-th action. 
     
     Parameters
     ----------
@@ -96,14 +96,14 @@ def _depsilon(DH, k):
         D[tuple(new + new)] = v*j1[k]
     return D
 
-def getPhaseAdvanceFunc(nfdict, real=True):
+def getPhaseAdvanceFunc(detuning_dict):
     '''
     Create a function giving the phase advance with respect to the action(s).
     
     Parameters
     ----------
-    dict
-        The output of the bnf routine.
+    detuning_dict: dict
+        The output of detuning routine.
         
     Returns
     -------
@@ -114,21 +114,36 @@ def getPhaseAdvanceFunc(nfdict, real=True):
     Reference(s):
     [1]: M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019).
     '''
-    detuning_dict = detuning(nfdict)
     dim = len(next(iter(detuning_dict.keys())))//2
     deps = [_depsilon(detuning_dict, k) for k in range(dim)]
-    nforder = nfdict['order']
-    def pa(*epsilon, s: float=1):
+    def pa(*action, s: float=1):
         '''
         Compute the phase advance in normal form.
         
         Parameters
         ----------
-        *epsilon
+        *action
             The action(s) at which to obtain the phase advance.
             
         s: float, optional
             The free parameter defining the phase advance.
+            
+        Returns
+        -------
+        list
+            A list where the k'th entry corresponds to the detuning of the k'th phase advance.
         '''
-        return [sum([deps[w].get((k, k), 0)*epsilon[w]**k*s for k in range(nforder + 1)]) for w in range(dim)]
+        # Example for dim = 2: deps[k].keys() = (0, 1, 0, 1), (1, 2, 1, 2) , ... for k = 0
+        out = []
+        for k in range(dim):
+            sumk = 0
+            for p, v in deps[k].items():
+                prod = 1
+                for j in range(dim):
+                    if p[j] == 0: # Ensures that 0**0 = 1 so that e.g. (0, 0) (the constant term) is included
+                        continue
+                    prod *= action[j]**p[j]
+                sumk += prod*v
+            out.append(sumk*s)
+        return out
     return pa
