@@ -26,6 +26,11 @@ class nf:
     def set_order(self, **kwargs):
         '''
         Calculate the Birkhoff normal form of the given Hamiltonian, up to a specific order.
+        
+        Parameters
+        ----------
+        **kwargs
+            Optional arguments passed to self.hamiltonian.bnf routine.
         '''
         self.__dict__.update(self.hamiltonian.bnf(**kwargs))
         self.detuning = detuning(self.__dict__)
@@ -38,7 +43,7 @@ class nf:
         self._lchi = [lexp(chi, t=1, power=self.lo_power) for chi in self.chi] # the Lie-operators belonging to the chi-transformations
         self._lchi_inv = [lexp(chi, t=-1, power=self.lo_power) for chi in self.chi] # the inverse Lie-operators belonging to the chi-transformations
         
-        xi = create_coords(dim=self.dim)[:self.dim]
+        xi = create_coords(dim=self.dim, max_power=self.hamiltonian.max_power)[:self.dim]
         # TODO: replace this by symplectic integrator to prevent the use of max_power etc.
         self.A = lambda *xieta: [(reduce(lie_compose, self._lchi[::-1], lie_identity)(x))(*xieta) for x in xi] # the map from ordinary (xi, eta)-space to normal-form space 
         self.A_inv = lambda *xieta: [(reduce(lie_compose, self._lchi_inv, lie_identity)(x))(*xieta) for x in xi] # the map from normal-form space to ordinary (xi, eta)-space
