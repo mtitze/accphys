@@ -1,5 +1,11 @@
 # Collection of some common routines, used to plot and perform standard tasks
 
+def f_identity(*x):
+    return x
+
+def f_compose(f, g):
+    return lambda *x: f(*g(*x))
+
 def multiturn(bl, n_reps: int, xi0, post=lambda x: x):
     '''
     Perform tracking for a given number of repetitions.

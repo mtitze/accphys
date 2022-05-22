@@ -1,15 +1,9 @@
-from njet.functions import exp
 from functools import reduce
 
 from accphys.tools import _depsilon, detuning
 from lieops import poly, lexp, create_coords
 
-# routines which will work with composition of Lie-operators applied on polynomials.
-def lie_identity(x):
-    return x
-
-def lie_compose(f, g):
-    return lambda x: f(g(x))
+from .tools import f_identity, f_compose
 
 class nf:
     '''
@@ -32,27 +26,46 @@ class nf:
         **kwargs
             Optional arguments passed to self.hamiltonian.bnf routine.
         '''
+        # power should be sufficiently high; self.lo_power = 10 is not sufficient for nfRot. Better 20.
+        # TODO:
+        # - may use self.lo_power instead.
+        # - replace steps by symplectic integrator to prevent the use of max_power etc.
+        # - Only the action on xi may be necessary, but currently I keep the full range to avoid any unecessary bugs.
+        self._lo_power = 20
+        
         self.__dict__.update(self.hamiltonian.bnf(**kwargs))
         self.detuning = detuning(self.__dict__)
         self.dHdaction = [poly(values=_depsilon(self.detuning, k), dim=self.dim) for k in range(self.dim)]
         # we use poly objects here, because in the next line we multiply these polynomials with other terms.
         # Also, we want to apply the resulting function on coordinates.
-        self.nfRot = lambda *xieta: [exp(self.dHdaction[k](*xieta)*1j)*xieta[k] for k in range(self.dim)] # (1.48) in Ref. [1] for the case of a single 'a'-value (=k)
-        # Note that we decided to use a 'general' njet.functions.exp in order to use jets later on.
         
-        self._lchi = [lexp(chi, t=1, power=self.lo_power) for chi in self.chi] # the Lie-operators belonging to the chi-transformations
-        self._lchi_inv = [lexp(chi, t=-1, power=self.lo_power) for chi in self.chi] # the inverse Lie-operators belonging to the chi-transformations
+        _xieta = create_coords(dim=self.dim, max_power=self.hamiltonian.max_power)
+        self._lHnfmap = lexp(poly(values=self.detuning, dim=self.dim), t=-.1, power=self._lo_power)(*_xieta)
+        self.nfRot = lambda *z: [lhfm(*z) for lhfm in self._lHnfmap] # N.B. in general it is important that both xi and eta components are returned here.
+        # alternative (requires exp with multiplication (not ad)):
+        #self.nfRot = lambda *xieta: [exp(self.dHdaction[k]*1j, power=self.lo_power)*xieta[k] for k in range(self.dim)] +\
+        #                            [exp(self.dHdaction[k]*-1j, power=self.lo_power)*xieta[k + self.dim] for k in range(self.dim)] 
+        # (1.48) in Ref. [1] for the case of a single 'a' or 'b'-value (i.e. a_k = 1)
         
-        xi = create_coords(dim=self.dim, max_power=self.hamiltonian.max_power)[:self.dim]
-        # TODO: replace this by symplectic integrator to prevent the use of max_power etc.
-        self.A = lambda *xieta: [(reduce(lie_compose, self._lchi[::-1], lie_identity)(x))(*xieta) for x in xi] # the map from ordinary (xi, eta)-space to normal-form space 
-        self.A_inv = lambda *xieta: [(reduce(lie_compose, self._lchi_inv, lie_identity)(x))(*xieta) for x in xi] # the map from normal-form space to ordinary (xi, eta)-space
+        self._lchi = [lexp(chi, t=1, power=self._lo_power) for chi in self.chi] # the Lie-operators belonging to the chi-transformations
+        self._lchi_inv = [lexp(chi, t=-1, power=self._lo_power) for chi in self.chi] # the inverse Lie-operators belonging to the chi-transformations
+        
+        self._Amap = reduce(f_compose, self._lchi[::-1], f_identity)(*_xieta) # the map from ordinary (xi, eta)-space to normal-form space 
+        self._A_invmap = reduce(f_compose, self._lchi_inv, f_identity)(*_xieta) # the map from normal-form space to ordinary (xi, eta)-space
+        self.A = lambda *xieta: [A(*xieta) for A in self._Amap]  # N.B. in general it is important that both xi and eta components are returned here.
+        self.A_inv = lambda *xieta: [Ai(*xieta) for Ai in self._A_invmap]  # N.B. in general it is important that both xi and eta components are returned here.
 
-    def oneTurnMap(self, *xieta):
+    def multiTurnMap(self, *xieta, n_reps=1):
+        points = [xieta] # = [self.A_inv(xi_nf)] with xi_nf = self.A(*xieta)
         xi_nf = self.A(*xieta)
-        xi_nf_rotated = self.nfRot(*xi_nf)
-        return self.A_inv(*xi_nf_rotated)
-
+        for k in range(n_reps):
+            xi_nf = self.nfRot(*xi_nf)
+            points.append(self.A_inv(*xi_nf))
+        return points
+        
+    def oneTurnMap(self, *xieta):
+        return self.multiTurnMap(*xieta, n_reps=1)[-1]
+    
     def __call__(self, *xieta):
         return self.oneTurnMap(*xieta)
     

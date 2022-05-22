@@ -2,12 +2,7 @@ from functools import reduce
 from tqdm.auto import tqdm
 
 from lieops import create_coords, combine
-
-def f_identity(*x):
-    return x
-
-def f_compose(f, g):
-    return lambda *x: f(*g(*x))
+from .tools import f_identity, f_compose
 
 class beamline:
     
