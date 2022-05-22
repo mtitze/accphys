@@ -16,9 +16,9 @@ class nf:
     def __init__(self, hamiltonian, **kwargs):
         self.hamiltonian = hamiltonian
         self.dim = hamiltonian.dim
-        self.nf_setup(**kwargs)
+        self._setup_nf(**kwargs)
         
-    def nf_setup(self, t_nf=-1, **kwargs):
+    def _setup_nf(self, t_nf=-1, **kwargs):
         '''
         Calculate the Birkhoff normal form of the given Hamiltonian, up to a specific order.
         
@@ -36,6 +36,7 @@ class nf:
         # - replace steps by symplectic integrator to prevent the use of max_power etc.
         # - Only the action on xi may be necessary, but currently I keep the full range to avoid any unecessary bugs.
         self._lo_power = 20
+        self.t_nf = t_nf
         
         self.__dict__.update(self.hamiltonian.bnf(**kwargs))
         self.detuning = detuning(self.__dict__)
@@ -43,14 +44,22 @@ class nf:
         # we use poly objects here, because in the next line we multiply these polynomials with other terms.
         # Also, we want to apply the resulting function on coordinates.
         
+        self._setup_nfRot(t_nf=t_nf)
+        self._setup_chimaps()
+        self.transform(**kwargs)
+        
+    def _setup_nfRot(self, **kwargs):
+        self.t_nf = kwargs.get('t_nf', self.t_nf)
         _xieta = create_coords(dim=self.dim, max_power=self.hamiltonian.max_power)
-        self._lHnfmap = lexp(poly(values=self.detuning, dim=self.dim), t=t_nf, power=self._lo_power)(*_xieta)
+        self._lHnfmap = lexp(poly(values=self.detuning, dim=self.dim), t=self.t_nf, power=self._lo_power)(*_xieta)
         self.nfRot = lambda *z: [lhfm(*z) for lhfm in self._lHnfmap] # N.B. in general it is important that both xi and eta components are returned here.
         # alternative (requires exp with multiplication (not ad)):
         #self.nfRot = lambda *xieta: [exp(self.dHdaction[k]*1j, power=self.lo_power)*xieta[k] for k in range(self.dim)] +\
         #                            [exp(self.dHdaction[k]*-1j, power=self.lo_power)*xieta[k + self.dim] for k in range(self.dim)] 
         # (1.48) in Ref. [1] for the case of a single 'a' or 'b'-value (i.e. a_k = 1)
         
+    def _setup_chimaps(self):
+        _xieta = create_coords(dim=self.dim, max_power=self.hamiltonian.max_power)
         self._lchi = [lexp(chi, t=1, power=self._lo_power) for chi in self.chi] # the Lie-operators belonging to the chi-transformations
         self._lchi_inv = [lexp(chi, t=-1, power=self._lo_power) for chi in self.chi] # the inverse Lie-operators belonging to the chi-transformations
         
@@ -58,8 +67,6 @@ class nf:
         self._A_invmap = reduce(f_compose, self._lchi_inv, f_identity)(*_xieta) # the map from normal-form space to ordinary (xi, eta)-space
         self.A = lambda *xieta: [A(*xieta) for A in self._Amap]  # N.B. in general it is important that both xi and eta components are returned here.
         self.A_inv = lambda *xieta: [Ai(*xieta) for Ai in self._A_invmap]  # N.B. in general it is important that both xi and eta components are returned here.
-        
-        self.transform(**kwargs)
 
     def transform(self, kind='cnf', **kwargs):
         '''
@@ -80,7 +87,7 @@ class nf:
             # Ordinary phase space
             self.setTransform(self.nfdict['K'], self.nfdict['Kinv'])
         else:
-            raise RuntimeError(f'{kind} not recognized. Supported type(s): {supported_types}')
+            raise RuntimeError(f"'{kind}' not recognized. Supported type(s): {supported_types}")
         
     def setTransform(self, N, N_inv=[]):
         '''
@@ -102,8 +109,12 @@ class nf:
         
     def multiTurnMap(self, *xieta, n_reps=1, **kwargs):
         self.transform(**kwargs)
+        t_nf = kwargs.get('t_nf', self.t_nf)
+        if self.t_nf != t_nf:
+            # re-calculate rotation
+            self._setup_nfRot(t_nf=t_nf)
         
-        points = [self._transform_A2_inv(*self._transform_A2(*xieta))] # A2 and back again ensures the output has the right format (e.g. if one component is given in terms of a numpy array and the other component a float etc.
+        points = [self._transform_A2_inv(*self._transform_A2(*xieta))] # Applying A2 and back again ensures the output will be in a common format (e.g. if one component is given in terms of a numpy array and the other component a float etc.
         xieta = self._transform_A2(*xieta) # apply the linear map first
         xi_nf = self.A(*xieta)
         for k in range(n_reps):
