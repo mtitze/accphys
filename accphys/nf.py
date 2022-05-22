@@ -80,6 +80,7 @@ class nf:
             'ops': Ordinary phase space
         '''
         supported_types = ['cnf', 'ops']
+        self._transform_kind = kind
         if kind == 'cnf':
             # Complex normal form
             self.setTransform(np.eye(self.dim*2))
@@ -108,13 +109,20 @@ class nf:
         self._transform_A2_inv = lambda *z: [sum([z[l]*N_inv[k, l] for l in range(self.dim*2)]) for k in range(self.dim*2)]
         
     def multiTurnMap(self, *xieta, n_reps=1, **kwargs):
-        self.transform(**kwargs)
+        # Preparation steps
+        # 1. Determine requested transformation
+        kind_inp = kwargs.get('kind', 'cnf') # if nothing specified, the default option will be 'cnf'
+        kind = getattr(self, '_transform_kind', kind_inp)
+        if kind != kind_inp:
+            self.transform(kind=kind_inp)
+        # 2. Determine requested integration length    
         t_nf = kwargs.get('t_nf', self.t_nf)
         if self.t_nf != t_nf:
-            # re-calculate rotation
+            # re-calculate inner NF rotation with the new length
             self._setup_nfRot(t_nf=t_nf)
         
-        points = [self._transform_A2_inv(*self._transform_A2(*xieta))] # Applying A2 and back again ensures the output will be in a common format (e.g. if one component is given in terms of a numpy array and the other component a float etc.
+        # Tracking
+        points = [self._transform_A2_inv(*self._transform_A2(*xieta))] # Applying A2 and back again ensures that the output will be in a common format (e.g. if one component is given in terms of a numpy array and the other component a float etc.
         xieta = self._transform_A2(*xieta) # apply the linear map first
         xi_nf = self.A(*xieta)
         for k in range(n_reps):
