@@ -79,13 +79,21 @@ class beamline:
         element_flows = [e.hamiltonian.flow(t=t*e.length, **kwargs) for e in self.elements] # compute the flows of the unique elements
         self.flows = [element_flows[j] for j in self.ordering]
         
-    def calcOneTurnMap(self, **kwargs):
+    def calcOneTurnMap(self, half=False, **kwargs):
         '''
-        **kwargs are passed to create_coords routine (e.g. any possible max_power)
+        Parameters
+        ----------
+        half: boolean, optional
+            If specified, only compute the result for the xi-polynomials.
+            
+        **kwargs 
+            Optional parameters passed to create_coords routine (e.g. any possible max_power)
         '''
         assert hasattr(self, 'flows'), 'Need to call self.calcFlows first.'
-        dim0 = self.elements[0].hamiltonian.dim
-        xiv = create_coords(dim0, **kwargs)[:dim0]        
+        dim0 = self.dim()
+        xiv = create_coords(dim0, **kwargs)
+        if half:
+            xiv = xiv[:dim0]
         # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
@@ -94,11 +102,11 @@ class beamline:
         # Since in our beamline the first element in the list should be executed first,
         # we have to reverse the order here.
         composition = reduce(f_compose, self.flows[::-1], f_identity)
-        self.oneTurnMap = composition(xiv)
+        self.oneTurnMap = composition(*xiv)
         
-    def __call__(self, point):
+    def __call__(self, *point):
         assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
-        return [c(point) for c in self.oneTurnMap]
+        return [c(*point) for c in self.oneTurnMap]
 
     def magnus(self, power=1, **kwargs):
         '''

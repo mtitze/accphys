@@ -16,9 +16,9 @@ class nf:
     def __init__(self, hamiltonian, **kwargs):
         self.hamiltonian = hamiltonian
         self.dim = hamiltonian.dim
-        self._setup_nf(**kwargs)
+        self.setup_nf(**kwargs)
         
-    def _setup_nf(self, t_nf=-1, **kwargs):
+    def setup_nf(self, t_nf=-1, **kwargs):
         '''
         Calculate the Birkhoff normal form of the given Hamiltonian, up to a specific order.
         
