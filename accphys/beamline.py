@@ -50,7 +50,7 @@ class beamline:
         '''
         return [e.length for e in self]
     
-    def dim(self):
+    def get_dim(self):
         return self[0].hamiltonian.dim
         
     def setHamiltonians(self, *args, **kwargs):
@@ -59,6 +59,24 @@ class beamline:
         '''
         for e in self.elements:
             e.setHamiltonian(*args, **kwargs)
+            
+    def magnus(self, power=1, **kwargs):
+        '''
+        Combine the individual Hamiltonians by means of Magnus series.
+        
+        Parameters
+        ----------
+        power: int, optional
+            Power in terms of the free parameter (usually the longitudinal coordinate s),
+            up to which the magnus series will be exact. 
+        
+        **kwargs
+            Optional keyword arguments passed to lieops.ops.lie.combine routine
+        '''            
+        hamiltonians = [e.hamiltonian for e in self]
+        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
+                                                                                     lengths=[e.length for e in self], **kwargs)
+        return sum(self._magnus_series.values())
         
     def calcFlows(self, t=-1, **kwargs):
         '''
@@ -90,7 +108,7 @@ class beamline:
             Optional parameters passed to create_coords routine (e.g. any possible max_power)
         '''
         assert hasattr(self, 'flows'), 'Need to call self.calcFlows first.'
-        dim0 = self.dim()
+        dim0 = self.get_dim()
         xiv = create_coords(dim0, **kwargs)
         if half:
             xiv = xiv[:dim0]
@@ -107,24 +125,37 @@ class beamline:
     def __call__(self, *point):
         assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
         return [c(*point) for c in self.oneTurnMap]
-
-    def magnus(self, power=1, **kwargs):
+    
+    def multiturn(self, *xi0, n_reps: int=1, post=lambda x: x):
         '''
-        Combine the individual Hamiltonians by means of Magnus series.
-        
+        Perform tracking for a given number of repetitions.
+
         Parameters
         ----------
-        power: int, optional
-            Power in terms of the free parameter (usually the longitudinal coordinate s),
-            up to which the magnus series will be exact. 
-        
-        **kwargs
-            Optional keyword arguments passed to lieops.ops.lie.combine routine
-        '''            
-        hamiltonians = [e.hamiltonian for e in self]
-        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
-                                                                                     lengths=[e.length for e in self], **kwargs)
-        return sum(self._magnus_series.values())
+        n_reps: int
+            The number of repetitions.
+
+        xi0: The start vector xi0.
+
+        post: callable, optional
+            An optional function to be applied after bl. 
+            Example: We want to compute (A o bl o B)**n at xi0, where A = B**(-1) are maps to normal form.
+            Then we need to record for Y0 := B(xi0) the values A(bl(Y0)), A(bl**2(Y0)) etc. Here A = post must
+            be inserted.
+
+        Returns
+        -------
+        list
+            A list so that the k'th entry corresponds to the k-th component for the requested turns.
+        '''
+        point = xi0
+        points = []
+        for k in range(n_reps):
+            point = self(*point)
+            post_point = post(point)
+            points.append(post_point)
+        return points
+
         
         
         

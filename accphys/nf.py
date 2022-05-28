@@ -108,7 +108,7 @@ class nf:
         self._transform_A2 = lambda *z: [sum([z[l]*N[k, l] for l in range(self.dim*2)]) for k in range(self.dim*2)] # we use matrix multiplication by hand, to avoid numpy complains with nested arrays in case z[l] are numpy arrays; N[k, l] stands on the right here, to avoid possible numpy issues with right-multiplications
         self._transform_A2_inv = lambda *z: [sum([z[l]*N_inv[k, l] for l in range(self.dim*2)]) for k in range(self.dim*2)]
         
-    def multiTurnMap(self, *xieta, n_reps=1, **kwargs):
+    def multiturn(self, *xieta, n_reps=1, **kwargs):
         # Preparation steps
         # 1. Determine requested transformation
         kind_inp = kwargs.get('kind', 'cnf') # if nothing specified, the default option will be 'cnf'
@@ -132,7 +132,7 @@ class nf:
         
     def oneTurnMap(self, *xieta, **kwargs):
         kwargs['n_reps'] = 1
-        return self.multiTurnMap(*xieta, **kwargs)[-1]
+        return self.multiturn(*xieta, **kwargs)[-1]
     
     def __call__(self, *xieta, **kwargs):
         return self.oneTurnMap(*xieta, **kwargs)
