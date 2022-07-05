@@ -14,7 +14,8 @@ matplotlib = "^3.5.1"
 tqdm = "^4.64.0"
 #ipykernel = "^6.13.0"
 ipykernel = "^5.5.5"
-latticeadaptor = { git = "https://github.com/mtitze/latticeadaptor.git", branch = "main" }
+latticeadaptor = ">=0.3.9"
+#latticeadaptor = { git = "https://github.com/mtitze/latticeadaptor.git", branch = "main" }
 
 [tool.poetry.dev-dependencies]
 #ipykernel = "^6.13.0"
