@@ -119,7 +119,7 @@ class nf:
         t_nf = kwargs.get('t_nf', self.t_nf)
         if self.t_nf != t_nf:
             # re-calculate inner NF rotation with the new length
-            self._setup_nfRot(t_nf=t_nf)
+            self._setup_nfRot(t_nf=t_nf) # also sets self.t_nf
         
         # Tracking
         points = [self._transform_A2_inv(*self._transform_A2(*xieta))] # Applying A2 and back again ensures that the output will be in a common format (e.g. if one component is given in terms of a numpy array and the other component a float etc.

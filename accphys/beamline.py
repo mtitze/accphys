@@ -23,7 +23,12 @@ class beamline:
         return len(self.ordering)
     
     def __getitem__(self, key):
-        return self.elements[self.ordering[key]]
+        requested_ele_indices = self.ordering[key]
+        if type(requested_ele_indices) == list:
+            requested_eles = [self.elements[e] for e in requested_ele_indices]
+        else:
+            requested_eles = [self.elements[requested_ele_indices]]
+        return self.__class__(*requested_eles)
     
     def __setitem__(self, key, value):
         if value not in self:
@@ -32,6 +37,17 @@ class beamline:
         else:
             index = self.elements.index(value)
             self.ordering[key] = index
+            
+    def __iter__(self):
+        self._k = 0
+        return self
+            
+    def __next__(self):
+        if self._k < len(self):
+            self._k += 1
+            return self.elements[self.ordering[self._k - 1]]
+        else:
+            raise StopIteration
             
     def index(self, value):
         return self.elements.index(value)
@@ -75,7 +91,7 @@ class beamline:
         '''            
         hamiltonians = [e.hamiltonian for e in self]
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
-                                                                                     lengths=[e.length for e in self], **kwargs)
+                                                                                     lengths=self.lengths(), **kwargs)
         return sum(self._magnus_series.values())
         
     def calcFlows(self, t=-1, **kwargs):
@@ -126,7 +142,7 @@ class beamline:
         assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
         return [c(*point) for c in self.oneTurnMap]
     
-    def multiturn(self, *xi0, n_reps: int=1, post=lambda x: x):
+    def track(self, *xi0, n_reps: int=1, post=lambda x: x):
         '''
         Perform tracking for a given number of repetitions.
 
@@ -152,9 +168,14 @@ class beamline:
         points = []
         for k in range(n_reps):
             point = self(*point)
-            post_point = post(point)
-            points.append(post_point)
+            points.append(post(point))
         return points
+    
+    def __str__(self):
+        outstr = ''
+        for e in self.elements:
+            outstr += e.__str__() + '\n'
+        return outstr[:-1]
 
         
         
