@@ -101,7 +101,7 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
     beamline
         A beamline object representing the sequence of elements.
     '''
-    # Preparation; ensure that no empty space exists between elements (they will be filled with drifts if necesary):
+    # Preparation; ensure that no empty space exists between elements (they will be filled with drifts if necessary):
     hdf = prepare_df(hdf, position_label=position_label, length_label=length_label, **kwargs)
             
     # group the given elements with respect to the remaining labels & find the uniques among them
@@ -128,30 +128,27 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
     return beamline(*elements, ordering=ordering)
 
 
-def from_madx(filename, beta0, **kwargs):
+def madx2dataframe(filename, **kwargs):
     '''
     Load MAD-X lattice from file, using LatticeAdaptor module, 
-    and construct a beamline object from the data.
+    and construct a suitable dataframe object. Furthermore, return the
+    required input parameters for to_beamline routine.
     
     Parameters
     ----------
     filename: str
         The name of the MAD-X lattice to be loaded.
         
-    beta0: float
-        The realtivistic beta-factor (related to the energy of the beam). This is required later to
-        build the Hamiltonians.
-        
     **kwargs
         Optional arguments passed to 'to_beamline' routine.
         
     Returns
-    -------
-    beamline
-        A beamline object representing the sequence of elements in the given lattice.
-        
+    -------    
     Pandas dataframe
         A Pandas dataframe object, representing the loaded sequence of the lattice.
+        
+    dict
+        A dictionary containing MAD-X specific input parameters for the general 'to_beamline' routine.
     '''
     la = LatticeAdaptor()
     la.load_from_file(filename, ftype='madx')
@@ -190,9 +187,33 @@ def from_madx(filename, beta0, **kwargs):
     for j in range(1, 3):
         raw_df[f'K{j}'] = raw_df[f'K{j}'].values/facts[j]
         
-    # construct the sequence of Lie operators
-    kwargs['position'] = kwargs.get('position', madx_default_position) 
-    seq2 = to_beamline(raw_df, beta0=beta0, 
-                      component_labels=component_labels, position_label=position_label,
-                      length_label=length_label, **kwargs)
-    return seq2, raw_df
+    to_beamline_inp = {'component_labels': component_labels, 'position_label': position_label,
+                    'length_label': length_label, 'position': kwargs.get('position', madx_default_position)}
+    
+    return raw_df, to_beamline_inp
+
+
+def madx2beamline(filename, beta0, **kwargs):
+    '''
+    Load MAD-X lattice from file and construct a beamline object from the data.
+    
+    Parameters
+    ----------
+    filename: str
+        The name of the MAD-X lattice to be loaded.
+        
+    beta0: float
+        The realtivistic beta-factor (related to the energy of the beam). This is required later to
+        build the Hamiltonians.
+        
+    **kwargs
+        Optional arguments passed to 'load_madx_file' routine.
+        
+    Returns
+    -------
+    beamline
+        A beamline object representing the sequence of elements in the given lattice.
+    '''
+    raw_df, to_beamline_inp = madx2dataframe(filename=filename, **kwargs)
+    to_beamline_inp.update(kwargs)
+    return to_beamline(raw_df, beta0=beta0, **to_beamline_inp)

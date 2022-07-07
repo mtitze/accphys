@@ -26,9 +26,11 @@ class beamline:
         requested_ele_indices = self.ordering[key]
         if type(requested_ele_indices) == list:
             requested_eles = [self.elements[e] for e in requested_ele_indices]
+            new_ordering = requested_ele_indices
         else:
             requested_eles = [self.elements[requested_ele_indices]]
-        return self.__class__(*requested_eles)
+            new_ordering = [requested_ele_indices]
+        return self.__class__(*requested_eles, ordering=new_ordering)
     
     def __setitem__(self, key, value):
         if value not in self:
@@ -67,7 +69,7 @@ class beamline:
         return [e.length for e in self]
     
     def get_dim(self):
-        return self[0].hamiltonian.dim
+        return self.elements[0].hamiltonian.dim
         
     def setHamiltonians(self, *args, **kwargs):
         '''

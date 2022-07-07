@@ -141,6 +141,7 @@ class cfm(hard_edge_element):
         self.tilt = tilt
         hard_edge_element.__init__(self, *args, **kwargs)
         
+        
     def setHamiltonian(self, *args, **kwargs):
         '''
         Set self.hamiltonian to requested dimension.
