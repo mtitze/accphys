@@ -1,3 +1,5 @@
+import numpy as np
+
 from functools import reduce
 from tqdm.auto import tqdm
 
@@ -24,12 +26,12 @@ class beamline:
     
     def __getitem__(self, key):
         requested_ele_indices = self.ordering[key]
-        if type(requested_ele_indices) == list:
-            requested_eles = [self.elements[e] for e in requested_ele_indices]
-            new_ordering = requested_ele_indices
-        else:
-            requested_eles = [self.elements[requested_ele_indices]]
-            new_ordering = [requested_ele_indices]
+        if type(requested_ele_indices) != list:
+            requested_ele_indices = [requested_ele_indices]
+            
+        requested_unique_ele_indices = list(np.unique(requested_ele_indices))
+        requested_eles = [self.elements[e] for e in requested_unique_ele_indices]
+        new_ordering = [requested_unique_ele_indices.index(e) for e in requested_ele_indices]
         return self.__class__(*requested_eles, ordering=new_ordering)
     
     def __setitem__(self, key, value):
@@ -175,8 +177,8 @@ class beamline:
     
     def __str__(self):
         outstr = ''
-        for e in self.elements:
-            outstr += e.__str__() + '\n'
+        for k in self.ordering:
+            outstr += self.elements[k].__str__() + '\n'
         return outstr[:-1]
 
         
