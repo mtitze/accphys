@@ -127,7 +127,8 @@ class beamline:
         xiv = create_coords(dim0, **kwargs)
         if half:
             xiv = xiv[:dim0]
-        composition = reduce(f_compose, [lexp(e.hamiltonian, t=t*e.length, **kwargs) for e in self.elements[::-1]], f_identity)
+        full_element_list = [self.elements[k] for k in self.ordering]
+        composition = reduce(f_compose, [lexp(e.hamiltonian, t=t*e.length, **kwargs) for e in full_element_list[::-1]], f_identity)
         # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
