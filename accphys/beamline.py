@@ -3,7 +3,7 @@ import numpy as np
 from functools import reduce
 from tqdm.auto import tqdm
 
-from lieops import create_coords, combine
+from lieops import create_coords, combine, lexp
 from .tools import f_identity, f_compose
 
 class beamline:
@@ -31,7 +31,7 @@ class beamline:
             
         requested_unique_ele_indices = list(np.unique(requested_ele_indices))
         requested_eles = [self.elements[e] for e in requested_unique_ele_indices]
-        new_ordering = [requested_unique_ele_indices.index(e) for e in requested_ele_indices]
+        new_ordering = [requested_unique_ele_indices.index(e) for e in requested_ele_indices] # starts from zero up to length of the unique (new) elements
         return self.__class__(*requested_eles, ordering=new_ordering)
     
     def __setitem__(self, key, value):
@@ -57,6 +57,9 @@ class beamline:
         return self.elements.index(value)
     
     def append(self, value):
+        '''
+        Append an element to the current beamline.
+        '''
         if value not in self.elements:
             index = len(self.elements)
             self.elements.append(value)
@@ -72,6 +75,18 @@ class beamline:
     
     def get_dim(self):
         return self.elements[0].hamiltonian.dim
+    
+    def copy(self):
+        '''
+        Return a copy of the current beamline.
+        '''
+        assert all([hasattr(e, 'copy') for e in self.elements])
+        result = self.__class__(*[e.copy() for e in self.elements])
+        # set all remaining fields (including the current ordering)
+        for field, value in self.__dict__.items():
+            if field != 'elements':
+                setattr(result, field, value)
+        return result
         
     def setHamiltonians(self, *args, **kwargs):
         '''
@@ -98,26 +113,7 @@ class beamline:
                                                                                      lengths=self.lengths(), **kwargs)
         return sum(self._magnus_series.values())
         
-    def calcFlows(self, t=-1, **kwargs):
-        '''
-        Calculate the sequence of Lie-operators exp(:f_n:) for each element f_n in self.sequence.
-        
-        Parameters
-        ----------
-        Parameters
-        ----------
-        lengths: list, optional
-            Lengths of the elements. These lengths will modifying the respecive flows accordingly.
-            If given, then exp(lengths[k]:x[k]:) will be computed. An additional t-argument will
-            compute exp(t*lengths[k]:x[k]:).
-
-        **kwargs
-            Optional parameters passed to lieops.ops.lie.poly.flow
-        '''
-        element_flows = [e.hamiltonian.flow(t=t*e.length, **kwargs) for e in self.elements] # compute the flows of the unique elements
-        self.flows = [element_flows[j] for j in self.ordering]
-        
-    def calcOneTurnMap(self, half=False, **kwargs):
+    def calcOneTurnMap(self, half=False, t=-1, *args, **kwargs):
         '''
         Parameters
         ----------
@@ -127,11 +123,11 @@ class beamline:
         **kwargs 
             Optional parameters passed to create_coords routine (e.g. any possible max_power)
         '''
-        assert hasattr(self, 'flows'), 'Need to call self.calcFlows first.'
         dim0 = self.get_dim()
         xiv = create_coords(dim0, **kwargs)
         if half:
             xiv = xiv[:dim0]
+        composition = reduce(f_compose, [lexp(e.hamiltonian, t=t*e.length, **kwargs) for e in self.elements[::-1]], f_identity)
         # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
@@ -139,7 +135,6 @@ class beamline:
         # etc.
         # Since in our beamline the first element in the list should be executed first,
         # we have to reverse the order here.
-        composition = reduce(f_compose, self.flows[::-1], f_identity)
         self.oneTurnMap = composition(*xiv)
         
     def __call__(self, *point):

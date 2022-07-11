@@ -10,7 +10,6 @@ from lieops import create_coords, construct
 # [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
 
 class hard_edge_element:
-    
     def __init__(self, *args, length=1, **kwargs):
         '''
         Class to model the Hamiltonian of a 6D hard-edge element.
@@ -110,7 +109,6 @@ class phaserot(hard_edge_element):
         xieta = create_coords(dim=dim)
         self.full_hamiltonian = sum([-tunes[k]*xieta[k]*xieta[k + dim] for k in range(dim)])
         
-        
 class cfm(hard_edge_element):
     def __init__(self, components=[0], tilt=0, *args, **kwargs):
         '''
@@ -140,7 +138,6 @@ class cfm(hard_edge_element):
         self.components = components
         self.tilt = tilt
         hard_edge_element.__init__(self, *args, **kwargs)
-        
         
     def setHamiltonian(self, *args, **kwargs):
         '''
@@ -323,7 +320,6 @@ class octupole(multipole):
         multipole.__init__(self, *args, n=4, **kwargs)
         
 class rfc(hard_edge_element):
-    
     def __init__(self, voltage, phase, frequency, beta0, *args, **kwargs):
         '''
         A generic RF cavity based on the simplest of all models.
