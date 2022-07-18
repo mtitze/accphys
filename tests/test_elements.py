@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 
 from accphys.elements import *
 
@@ -25,3 +26,33 @@ def test_cfm(kx, ky, g, h, beta0, tol=1e-15):
     
     diff = current_cfm._prop['G'] - kappa_at_thesis
     assert max([abs(v) for v in diff.values()]) < tol
+    
+def test_nodipole(cl=5, beta0=0.995, cfmlength=1, **kwargs):
+    '''
+    Test a CFM element in case that the dipole component is absent. In this case it must hold for the
+    g_{j, k} elements (see Ref. [1]) for k >= 1:
+    
+    (k + 1) g_{k + 1, 0} == -2**k*lambda[k],
+    
+    where lambda[k] are the components of the CFM.
+    
+    Reference(s):
+    [1] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019).
+    '''
+    components = [0] + list(np.random.rand(cl) + np.random.rand(cl)*1j)
+
+    testele = cfm(components=components, length=cfmlength)
+    testele.calcHamiltonian(beta0=beta0, **kwargs)
+    testele.setHamiltonian(0)
+    
+    gc = testele._prop['g']
+    assert gc[(0, 0)] == 0
+    assert gc[(1, 0)] == 0
+    assert gc[(1, 1)] == 0
+    for k in range(cl):
+        assert gc[(k + 1, 0)] == -2**k/(k + 1)*components[k]
+        assert gc[(k + 1, k + 1)] == gc[(k + 1, 0)].conjugate()
+        for j in range(1, k):
+            assert gc[(k, j)] == 0
+        
+        

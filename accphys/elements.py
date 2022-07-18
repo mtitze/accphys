@@ -29,7 +29,7 @@ class hard_edge_element:
         Parameters
         ----------
         sqrtexp or power: int, optional
-            Power up to which the square root of the drift should be expanded. 
+            Power up to which the square root of the drift should be expanded.
         '''
         assert 0 < beta0 and beta0 < 1
         kwargs['power'] = kwargs.get('power', sqrtexp)
@@ -44,12 +44,13 @@ class hard_edge_element:
         self._prop = {}
         self._prop['beta0'] = beta0
         self._prop['sqrtexp'] = sqrtexp
+        self._prop['dE_E'] = psigma*beta0**2
         self._prop['drift'] = hamiltonian
         self._prop['drift_sqrt'] = drift_s
         self._prop['full'] = hamiltonian
         self._prop['coords'] = x, y, sigma, px, py, psigma
         
-    def setHamiltonian(self, *projection, **kwargs):
+    def setHamiltonian(self, *projection, tol=0, **kwargs):
         '''
         Set Hamiltonian by dropping components associated with terms not in given list.
         
@@ -63,6 +64,9 @@ class hard_edge_element:
         projection: int
             The indices of the coordinates of interest. Must reach from 0 to self.full_hamiltonian.dim.
             If there are no arguments given, then the default Hamiltonian will be restored.
+            
+        tol: float, optional
+            If > 0, then drop entries whose absolute value are smaller than this value.
         '''
         # consistency checks
         new_dim = len(projection)
@@ -78,6 +82,8 @@ class hard_edge_element:
             if any([k[p] != 0 for p in complement]): # only keep those coefficients which do not couple to other directions
                 continue
             new_values[tuple([k[p] for p in projection])] = v
+        if tol > 0:
+            new_values = {k: v for k, v in new_values.items() if abs(v) > tol}       
         self.hamiltonian = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
         
     def copy(self):
@@ -135,6 +141,7 @@ class cfm(hard_edge_element):
         **kwargs
             Optional arguments passed to self.calcHamiltonian and self.setHamiltonian.
         '''
+        assert len(components) > 0
         self.components = components
         self.tilt = tilt
         hard_edge_element.__init__(self, *args, **kwargs)
@@ -196,7 +203,7 @@ class cfm(hard_edge_element):
                             + 1/2*(barkappa*exp(self.tilt*1j) + kappa*exp(self.tilt*-1j))*self.components[k - 1] ) )/(k + 1)
             g[(k + 1, k + 1)] = g[(k + 1, 0)].conjugate()
         return g
-
+    
     def calcHamiltonian(self, **kwargs):
         '''
         Compute the Hamiltonian of the cfm (without electric fields).
@@ -219,13 +226,13 @@ class cfm(hard_edge_element):
             ky: float
                 The field strength of the y-component of the dipole.
 
-            H: liepoly
+            H: poly
                 The Hamiltonian of the cfm up to the requested order.
 
-            H_drift: liepoly
+            H_drift: poly
                 The drift part of H.
 
-            H_field: liepoly
+            H_field: poly
                 The field part of H.
                 
             g: dict
@@ -245,6 +252,12 @@ class cfm(hard_edge_element):
         rp = (x + y*1j)/2
         rm = rp.conjugate()
         G = sum([rp**(k - j)*rm**j*g[(k, j)] for k, j in g.keys()]) # N.B.: We need to multiply g[(k, j)] from right in case their entries are jetpoly objects etc. They need to be added as the coefficients of the Lie polynomials. 
+        
+        # Also compute the derivatives of G
+        drp_G = sum([(k - j)*rp**(k - j - 1)*rm**j*g[(k, j)] for k, j in g.keys() if k != j]) # the partial derivative of G with respect to r_+
+        drm_G = sum([j*rp**(k - j)*rm**(j - 1)*g[(k, j)] for k, j in g.keys() if j != 0])
+        dx_G = (drp_G + drm_G)/2
+        dy_G = (-drp_G + drm_G)/2/1j
         
         # Assemble output Hamiltonians
         out = {}
@@ -268,9 +281,57 @@ class cfm(hard_edge_element):
         out['full'] = H_full
         out['kick'] = H_field
         out['G'] = G
+        out['drp_G'] = drp_G
+        out['drm_G'] = drm_G
+        out['dx_G'] = dx_G
+        out['dy_G'] = dy_G
         out['g'] = g
         self._prop.update(out)
         self.full_hamiltonian = H_full
+        
+    def _map(self, x, y, sigma, px, py, psigma, ds):
+        r'''
+        An implementation of map (2.33) in Ref. [2].
+        
+        Parameters
+        ----------
+            ds: \delta_s according to Eq. (2.33) in Ref. [2].
+        '''
+        dx_G_map, dy_G_map = self._prop['dx_G'], self._prop['dy_G']
+        
+        xi1 = (x + px*1j)/2
+        xi2 = (y + py*1j)/2
+        xi3 = (sigma + psigma*1j)/2
+        eta1 = (x - px*1j)/2
+        eta2 = (y - py*1j)/2
+        eta3 = (sigma - psigma*1j)/2
+        
+        dx_G = dx_G_map(xi1, xi2, xi3, eta1, eta2, eta3)
+        dy_G = dy_G_map(xi1, xi2, xi3, eta1, eta2, eta3)
+        
+        ux = px + dx_G*ds
+        uy = py + dy_G*ds
+        
+        # Preparation steps
+        beta0 = self._prop['beta0']
+        dE_E = psigma*beta0**2 # = eta in Ref. [2].
+        one_hateta2 = ((1 + dE_E)**2 - 1 + beta0**2)/beta0**2 # (1 + \hat \eta)**2; Eq. (2.17) in Ref. [2].
+        kx, ky = self._prop['kx'], self._prop['ky']
+        denominator = 1 + (kx**2 + ky**2)*ds**2
+        XI = (ux*kx + uy*ky)/denominator*2*ds
+        ZETA = (ux**2 + uy**2 - one_hateta2)/denominator
+        h = -XI/2 + np.sqrt(XI**2/4 - ZETA)
+        curv = 1 + kx*x + ky*y
+        
+        # Map (2.33) in Ref. [2]:
+        xf = x + ds*curv*(ux/h + ds*kx)
+        yf = y + ds*curv*(uy/h + ds*ky)
+        sigmaf = sigma + ds - ds*curv*(1 + dE_E)/h
+        pxf = ux + ds*kx*h
+        pyf = uy + ds*ky*h
+        psigmaf = psigma
+        
+        return xf, yf, sigmaf, pxf, pyf, psigmaf
 
 class multipole(cfm):
     def __init__(self, str=0, n: int=0, *args, **kwargs):

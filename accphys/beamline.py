@@ -25,7 +25,10 @@ class beamline:
         return len(self.ordering)
     
     def __getitem__(self, key):
-        requested_ele_indices = self.ordering[key]
+        if type(key) == list:
+            requested_ele_indices = [self.ordering[e] for e in key]
+        else:
+            requested_ele_indices = self.ordering[key]
         if type(requested_ele_indices) != list:
             requested_ele_indices = [requested_ele_indices]
             
@@ -108,9 +111,10 @@ class beamline:
         **kwargs
             Optional keyword arguments passed to lieops.ops.lie.combine routine
         '''            
-        hamiltonians = [e.hamiltonian for e in self]
+        hamiltonians = [e.hamiltonian for e in self][::-1]
+        lengths = np.array(self.lengths()[::-1])
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
-                                                                                     lengths=self.lengths(), **kwargs)
+                                                                                     lengths=lengths, **kwargs)
         return sum(self._magnus_series.values())
         
     def calcOneTurnMap(self, half=False, t=-1, *args, **kwargs):
@@ -127,15 +131,14 @@ class beamline:
         xiv = create_coords(dim0, **kwargs)
         if half:
             xiv = xiv[:dim0]
-        full_element_list = [self.elements[k] for k in self.ordering]
-        composition = reduce(f_compose, [lexp(e.hamiltonian, t=t*e.length, **kwargs) for e in full_element_list[::-1]], f_identity)
+        full_element_list = [self.elements[k] for k in self.ordering]#[::-1]
+        composition = reduce(f_compose, [lexp(e.hamiltonian, t=t*e.length, **kwargs) for e in full_element_list], f_identity)
         # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
         # f0(f1(f2(z)))
         # etc.
-        # Since in our beamline the first element in the list should be executed first,
-        # we have to reverse the order here.
+        # Due to the nature of the lie operators to act on the coordinates as pull-backs, we do not have to revert the list here
         self.oneTurnMap = composition(*xiv)
         
     def __call__(self, *point):

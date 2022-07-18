@@ -1,6 +1,7 @@
 from .beamline import beamline
 from .elements import cfm
-from tqdm.auto import tqdm
+#from tqdm.auto import tqdm
+from tqdm.autonotebook import tqdm
 
 from latticeadaptor.core import LatticeAdaptor
 import numpy as np
@@ -101,6 +102,7 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
     beamline
         A beamline object representing the sequence of elements.
     '''
+    assert len(component_labels) > 0
     # Preparation; ensure that no empty space exists between elements (they will be filled with drifts if necessary):
     hdf = prepare_df(hdf, position_label=position_label, length_label=length_label, **kwargs)
             
@@ -158,11 +160,11 @@ def madx2dataframe(filename, **kwargs):
     position_label='at'
     length_label='L'
     bend_kx_label = 'K0'
-    angle_label = 'ANGLE'
-    component_labels = [bend_kx_label, 'K1', 'K2']
+    angle_label = 'ANGLE'    
+    component_labels = [f'K{j}' for j in range(1, 13) if f'K{j}' in raw_df.columns]
     madx_default_position = 0.5 # MAD-X tends to denote the position of the elements in the center
 
-    if bend_kx_label not in raw_df.columns:
+    if bend_kx_label not in raw_df.columns and angle_label in raw_df.columns:
         # add kx
         angles = raw_df[angle_label].values
         lengths = raw_df[length_label].values 
@@ -170,22 +172,29 @@ def madx2dataframe(filename, **kwargs):
         kx = np.zeros(len(raw_df))
         kx[valid_indices] = angles[valid_indices]/lengths[valid_indices] # r*phi = L; kx = 1/r
         raw_df[bend_kx_label] = kx
-    
+        component_labels = [bend_kx_label] + component_labels
+
     # drop elements with zero length and uneccesary columns;
     # N.B. E1 and E2 denote rotation angles of the pole-faces. If they are non-zero,
     # they are usually half the bend angle (in the rectangular case). We will ignore rectangular
     # bends for the time being and use s-bends here.
     columns_oi = [position_label, length_label] + component_labels
     # if they exist, add skew-values to the components; TODO: check & verify this numerically
-    for j in range(1, 3):
-        if f'K{j}S' in raw_df.columns:
-            raw_df[f'K{j}'] = raw_df[f'K{j}'].values + raw_df[f'K{j}S']*1j
+    for cl in component_labels:
+        if cl + 'S' in raw_df.columns:
+            raw_df[cl] = raw_df[cl].values + raw_df[cl + 'S'].values*1j
     raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
     
     # (TO BE CHECKED; TODO)
-    facts = factorials(3)
-    for j in range(1, 3):
-        raw_df[f'K{j}'] = raw_df[f'K{j}'].values/facts[j]
+    facts = factorials(len(component_labels))
+    j = 0
+    for cl in component_labels:
+        raw_df[cl] = raw_df[cl].values/facts[j]
+        j += 1
+        
+    if len(component_labels) == 0: # special case: Only pure drifts exist
+        raw_df[bend_kx_label] = [0]*len(raw_df)
+        component_labels = [bend_kx_label]
         
     to_beamline_inp = {'component_labels': component_labels, 'position_label': position_label,
                     'length_label': length_label, 'position': kwargs.get('position', madx_default_position)}
