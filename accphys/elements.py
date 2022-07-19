@@ -37,7 +37,7 @@ class hard_edge_element:
         x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
         one_hateta2 = lambda ps: ((1 + ps*beta0**2)**2 - 1 + beta0**2)/beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
-        drift_s = construct(sqrt, px, py, psigma, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power
+        drift_s = construct(sqrt, px, py, psigma, power=sqrtexp) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power
         hamiltonian = psigma - drift_s
         hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
         self.full_hamiltonian = hamiltonian
@@ -299,12 +299,13 @@ class cfm(hard_edge_element):
         '''
         dx_G_map, dy_G_map = self._prop['dx_G'], self._prop['dy_G']
         
-        xi1 = (x + px*1j)/2
-        xi2 = (y + py*1j)/2
-        xi3 = (sigma + psigma*1j)/2
-        eta1 = (x - px*1j)/2
-        eta2 = (y - py*1j)/2
-        eta3 = (sigma - psigma*1j)/2
+        sqrt2 = float(np.sqrt(2))
+        xi1 = (x + px*1j)/sqrt2
+        xi2 = (y + py*1j)/sqrt2
+        xi3 = (sigma + psigma*1j)/sqrt2
+        eta1 = (x - px*1j)/sqrt2
+        eta2 = (y - py*1j)/sqrt2
+        eta3 = (sigma - psigma*1j)/sqrt2
         
         dx_G = dx_G_map(xi1, xi2, xi3, eta1, eta2, eta3)
         dy_G = dy_G_map(xi1, xi2, xi3, eta1, eta2, eta3)
