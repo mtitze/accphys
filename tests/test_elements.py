@@ -3,15 +3,18 @@ import numpy as np
 
 from accphys.elements import *
 
+'''
+    Reference(s):
+    [1] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019).
+'''
+
+
 @pytest.mark.parametrize("kx,ky,g,h,beta0",
                          [(0.321, -2.1, 0, 5.2, 0.753),
                           (0.42, 2.21, -0.4616, -5.32, 0.863)])
 def test_cfm(kx, ky, g, h, beta0, tol=1e-15):
     '''
-    Test a CFM element against Eq. (2.57) in Ref. [1].
-    
-    Reference(s):
-    [1] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019).
+    Test a CFM element against Eq. (2.57) in Ref. [1].    
     '''
     # Note that we have to insert h/2 to compare the result with those from the thesis
     current_cfm = cfm(beta0=beta0, components=[kx - ky*1j, g, h/2, 0])
@@ -35,9 +38,6 @@ def test_nodipole(cl=5, beta0=0.995, cfmlength=1, **kwargs):
     (k + 1) g_{k + 1, 0} == -2**k*lambda[k],
     
     where lambda[k] are the components of the CFM.
-    
-    Reference(s):
-    [1] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019).
     '''
     components = [0] + list(np.random.rand(cl) + np.random.rand(cl)*1j)
 
@@ -55,4 +55,16 @@ def test_nodipole(cl=5, beta0=0.995, cfmlength=1, **kwargs):
         for j in range(1, k):
             assert gc[(k, j)] == 0
         
-        
+@pytest.mark.parametrize("gstr", [(0.22321), (0.42), (-4.22)])
+def test_quad(gstr, beta0=0.9664):
+    '''
+    In case of a quadrupole, it must hold
+    G = -g/2*(x**2 - y**2),
+    where g is the quad field strenght and G according to Ref. [1]. This is tested here.
+    '''
+    quad = quadrupole(gstr, beta0=beta0)
+    x, y, z, px, py, pz = create_coords(dim=3, real=True)
+    
+    assert (x**2 - y**2)*(-gstr/2) == quad._prop['G']
+    assert -gstr*x == quad._prop['dx_G']
+    assert gstr*y == quad._prop['dy_G']

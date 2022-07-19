@@ -160,10 +160,11 @@ def madx2dataframe(filename, **kwargs):
     position_label='at'
     length_label='L'
     bend_kx_label = 'K0'
-    angle_label = 'ANGLE'    
-    component_labels = [f'K{j}' for j in range(1, 13) if f'K{j}' in raw_df.columns]
+    angle_label = 'ANGLE'
+    max_seek_order = 13
     madx_default_position = 0.5 # MAD-X tends to denote the position of the elements in the center
 
+    component_labels = [f'K{j}' for j in range(1, max_seek_order) if f'K{j}' in raw_df.columns]
     if bend_kx_label not in raw_df.columns and angle_label in raw_df.columns:
         # add kx
         angles = raw_df[angle_label].values
