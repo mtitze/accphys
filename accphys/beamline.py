@@ -132,27 +132,28 @@ class beamline:
         if half:
             xiv = xiv[:dim0]
             
-        def create_elemap(n, **kwargs):
-            # necessary to create functions in the loop below
+        # create_elemap necessary to construct functions in the loop below
+        # This function will be used to compute the flow for each of the unique elements in the lattice
+        # (these elements are stored in self.elements).
+        def create_elemap(n, **kwargs2):
             e = self.elements[n]
             final_components = lexp(e.hamiltonian, t=t*e.length, **kwargs)(*xiv)
-            if 'tol' in kwargs.keys():
-                final_components = [c.drop(kwargs['tol']) for c in final_components]
+            if 'tol' in kwargs2.keys():
+                final_components = [c.drop(kwargs2['tol']) for c in final_components]
             return lambda *z: [c(*z) for c in final_components]        
-            
         self._oneTurnMapOps = []
         for n in tqdm(range(len(self.elements))):
-            ele_map = create_elemap(n)
-            self._oneTurnMapOps.append(ele_map)
+            self._oneTurnMapOps.append(create_elemap(n, **kwargs))
             
-        full_ops_list = [self._oneTurnMapOps[k] for k in self.ordering][::-1]
-        composition = reduce(f_compose, full_ops_list, f_identity)
-        # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
+        # Now define the entire one-turn map as composition of the flows we computed.
+        # 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
         # f0(f1(f2(z)))
         # etc.
-        self.oneTurnMap = composition
+        # Therefore we have to revert the list below:
+        full_ops_list = [self._oneTurnMapOps[k] for k in self.ordering][::-1]
+        self.oneTurnMap = reduce(f_compose, full_ops_list, f_identity)
 
     def __call__(self, *point):
         assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
