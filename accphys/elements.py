@@ -32,12 +32,12 @@ class hard_edge_element:
             Power up to which the square root of the drift should be expanded.
         '''
         assert 0 < beta0 and beta0 < 1
-        kwargs['power'] = kwargs.get('power', sqrtexp)
         # Compute the CFM drift part
         x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
         one_hateta2 = lambda ps: ((1 + ps*beta0**2)**2 - 1 + beta0**2)/beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
-        drift_s = construct(sqrt, px, py, psigma, power=sqrtexp) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power
+        _ = kwargs.pop('power', None) # n.b. this will not remove the key in any calling instance
+        drift_s = construct(sqrt, px, py, psigma, power=sqrtexp, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power.
         hamiltonian = psigma - drift_s
         hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
         self.full_hamiltonian = hamiltonian
@@ -83,7 +83,7 @@ class hard_edge_element:
                 continue
             new_values[tuple([k[p] for p in projection])] = v
         if tol > 0:
-            new_values = {k: v for k, v in new_values.items() if abs(v) > tol}       
+            ham = ham.drop(tol)
         self.hamiltonian = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
         
     def copy(self):

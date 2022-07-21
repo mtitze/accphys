@@ -1,7 +1,7 @@
 from .beamline import beamline
 from .elements import cfm
-#from tqdm.auto import tqdm
-from tqdm.autonotebook import tqdm
+
+from tqdm import tqdm
 
 from latticeadaptor.core import LatticeAdaptor
 import numpy as np

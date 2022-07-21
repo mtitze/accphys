@@ -1,7 +1,7 @@
 import numpy as np
 
 from functools import reduce
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 from lieops import create_coords, combine, lexp
 from .tools import f_identity, f_compose
@@ -131,19 +131,32 @@ class beamline:
         xiv = create_coords(dim0, **kwargs)
         if half:
             xiv = xiv[:dim0]
-        full_element_list = [self.elements[k] for k in self.ordering]#[::-1]
-        composition = reduce(f_compose, [lexp(e.hamiltonian, t=t*e.length, **kwargs) for e in full_element_list], f_identity)
+            
+        def create_elemap(n, **kwargs):
+            # necessary to create functions in the loop below
+            e = self.elements[n]
+            final_components = lexp(e.hamiltonian, t=t*e.length, **kwargs)(*xiv)
+            if 'tol' in kwargs.keys():
+                final_components = [c.drop(kwargs['tol']) for c in final_components]
+            return lambda *z: [c(*z) for c in final_components]        
+            
+        self._oneTurnMapOps = []
+        for n in tqdm(range(len(self.elements))):
+            ele_map = create_elemap(n)
+            self._oneTurnMapOps.append(ele_map)
+            
+        full_ops_list = [self._oneTurnMapOps[k] for k in self.ordering][::-1]
+        composition = reduce(f_compose, full_ops_list, f_identity)
         # N.B. 'reduce' will apply the rightmost function in the given list first, so that e.g.
         # [f0, f1, f2]
         # will be executed as
         # f0(f1(f2(z)))
         # etc.
-        # Due to the nature of the lie operators to act on the coordinates as pull-backs, we do not have to revert the list here
-        self.oneTurnMap = composition(*xiv)
-        
+        self.oneTurnMap = composition
+
     def __call__(self, *point):
         assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
-        return [c(*point) for c in self.oneTurnMap]
+        return self.oneTurnMap(*point)
     
     def track(self, *xi0, n_reps: int=1, post=lambda x: x):
         '''
