@@ -170,8 +170,9 @@ class beamline:
         # integrating the equations of motion.
         self.oneTurnMapOps = []
         for k in tqdm(range(len(self)), disable=kwargs.get('disable_tqdm', False)):
-            ham = self.elements[k].hamiltonian
-            length = self.elements[k].length
+            element_index = self.ordering[k]
+            ham = self.elements[element_index].hamiltonian
+            length = self.elements[element_index].length
             solver = heyoka(ham, t=t*length, **kwargs)
             self.oneTurnMapOps.append(solver)
         self.oneTurnMapOps = self.oneTurnMapOps[::-1]
