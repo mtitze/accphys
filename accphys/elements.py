@@ -1,7 +1,7 @@
 import numpy as np
 
 from njet.functions import cos
-from lieops import create_coords, construct
+from lieops import create_coords, construct, poly
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -17,6 +17,15 @@ class hard_edge_element:
         self.length = length
         if 'beta0' in kwargs.keys():
             self.calcHamiltonian(*args, **kwargs)
+        elif 'full_hamiltonian' in kwargs.keys(): # full_hamiltonian preference over Hamiltonian from beta0-calculation.
+            self.full_hamiltonian = kwargs['full_hamiltonian']
+        elif len(args) == 1: # full_hamiltonian preference over Hamiltonian from beta0-calculation.
+            a = args[0]
+            if type(a) == poly:
+                self.full_hamiltonian = a
+            else:
+                raise RuntimeError(f'Argument {a} not recognized.')
+                
         if hasattr(self, 'full_hamiltonian'):
             self.setHamiltonian(**kwargs)
         
@@ -74,7 +83,8 @@ class hard_edge_element:
         if new_dim == 0: # default: 6D Hamiltonian
             projection = range(ham.dim)
             new_dim = ham.dim
-        assert new_dim <= ham.dim and max(projection) < ham.dim, 'Number of spatial dimensions too large.'
+        assert new_dim <= ham.dim, 'Number of requested dimension too large.'
+        assert max(projection) < ham.dim, 'Requested dimension-index larger than any available index.'
         projection = list(projection) + [p + ham.dim for p in projection] # the eta-components duplicate the indices.
         complement = [k for k in range(2*ham.dim) if not k in projection]
         new_values = {}
@@ -107,8 +117,6 @@ class phaserot(hard_edge_element):
         self.length = length
         if len(tunes) > 0:
             self.calcHamiltonian(*tunes, **kwargs)
-        if hasattr(self, 'full_hamiltonian'):
-            self.setHamiltonian(**kwargs)
         
     def calcHamiltonian(self, *tunes, **kwargs):
         dim = len(tunes)

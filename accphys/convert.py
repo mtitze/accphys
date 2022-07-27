@@ -116,7 +116,7 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
     # build the elements:
     elements = []
     group_index = 0
-    for n in tqdm(range(len(unique_elements))):
+    for n in tqdm(range(len(unique_elements)), disable=kwargs.get('disable_tqdm', False)):
         row = unique_elements.iloc[n]
         components = [row[c] for c in component_labels]
         length = row[length_label]

@@ -6,6 +6,8 @@ from tqdm import tqdm
 from lieops import create_coords, combine, lexp
 from .tools import f_identity, f_compose
 
+from lieops.solver import heyoka
+
 class beamline:
     
     def __init__(self, *elements, **kwargs):
@@ -117,8 +119,11 @@ class beamline:
                                                                                      lengths=lengths, **kwargs)
         return sum(self._magnus_series.values())
         
-    def calcOneTurnMap(self, half=False, t=-1, *args, **kwargs):
+    def _calcClassicOneTurnMap(self, half=False, t=-1, *args, **kwargs):
         '''
+        Integrate the equations of motion by 'brute-force', namely by calculating the
+        flow(s) exp(-:H:) applied to coordinate functions, up to specific orders.
+        
         Parameters
         ----------
         half: boolean, optional
@@ -140,10 +145,10 @@ class beamline:
             final_components = lexp(e.hamiltonian, t=t*e.length, **kwargs)(*xiv)
             if 'tol' in kwargs2.keys():
                 final_components = [c.drop(kwargs2['tol']) for c in final_components]
-            return lambda *z: [c(*z) for c in final_components]        
-        self._oneTurnMapOps = []
-        for n in tqdm(range(len(self.elements))):
-            self._oneTurnMapOps.append(create_elemap(n, **kwargs))
+            return lambda *z: [c(*z) for c in final_components]
+        self._uniqueOneTurnMapOps = []
+        for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
+            self._uniqueOneTurnMapOps.append(create_elemap(n, **kwargs))
             
         # Now define the entire one-turn map as composition of the flows we computed.
         # 'reduce' will apply the rightmost function in the given list first, so that e.g.
@@ -152,14 +157,37 @@ class beamline:
         # f0(f1(f2(z)))
         # etc.
         # Therefore we have to revert the list below:
-        full_ops_list = [self._oneTurnMapOps[k] for k in self.ordering][::-1]
-        self.oneTurnMap = reduce(f_compose, full_ops_list, f_identity)
+        self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering][::-1]
+        self.oneTurnMap = reduce(f_compose, self.oneTurnMapOps, f_identity)
+        
+    def _calcHeyokaOneTurnMap(self, t=1, **kwargs):
+        '''
+        Integrate the equations of motion using the Heyoka solver, see
+        https://bluescarni.github.io/heyoka/index.html
+        '''
+        # N.B. t=1 here, because t corresponds to the time in the Heyoka integrator. In contrast to
+        # the flow, which requires a -1 in the exponent, the signum is already taken care of by
+        # integrating the equations of motion.
+        self.oneTurnMapOps = []
+        for k in tqdm(range(len(self)), disable=kwargs.get('disable_tqdm', False)):
+            ham = self.elements[k].hamiltonian
+            length = self.elements[k].length
+            solver = heyoka(ham, t=t*length, **kwargs)
+            self.oneTurnMapOps.append(solver)
+        self.oneTurnMapOps = self.oneTurnMapOps[::-1]
+        self.oneTurnMap = reduce(f_compose, self.oneTurnMapOps, f_identity)
+        
+    def calcOneTurnMap(self, *args, method='heyoka', **kwargs):
+        if method == 'heyoka':
+            self._calcHeyokaOneTurnMap(**kwargs)
+        if method == 'classic':
+            self._calcClassicOneTurnMap(*args, **kwargs)
 
     def __call__(self, *point):
         assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
         return self.oneTurnMap(*point)
     
-    def track(self, *xi0, n_reps: int=1, post=lambda x: x):
+    def track(self, *xieta, n_reps: int=1, post=lambda x: x, **kwargs):
         '''
         Perform tracking for a given number of repetitions.
 
@@ -168,7 +196,7 @@ class beamline:
         n_reps: int
             The number of repetitions.
 
-        xi0: The start vector xi0.
+        xieta: The start vector (xi, eta).
 
         post: callable, optional
             An optional function to be applied after bl. 
@@ -181,9 +209,9 @@ class beamline:
         list
             A list so that the k'th entry corresponds to the k-th component for the requested turns.
         '''
-        point = xi0
+        point = xieta
         points = []
-        for k in range(n_reps):
+        for k in tqdm(range(n_reps), disable=kwargs.get('disable_tqdm', False)):
             point = self(*point)
             points.append(post(point))
         return points
