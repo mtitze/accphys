@@ -235,8 +235,9 @@ class beamline:
         new_elements, n_esplit = [], []
         for e in self.elements:
             esplit = e.split(n_slices=n_slices, **kwargs)
-            new_elements += esplit
-            n_esplit.append(len(esplit)//n_slices) # the length of the decomposition
+            n_decomp = len(esplit)//n_slices # the length of the decomposition (equal to the scheme used)
+            new_elements += esplit[:n_decomp] # only the first n_decomp are unique, the rest in this list is a repetition according to the given n_slices
+            n_esplit.append(n_decomp) 
             
         jumps = [0] + list(np.cumsum(n_esplit))
         # determine the new order
@@ -245,7 +246,11 @@ class beamline:
             n_decomp = n_esplit[element_index]
             jump = jumps[element_index]
             new_ordering += list([j + jump for j in range(n_decomp)])*n_slices
-            
+
+        # consistency checks
+        if len(np.unique(n_esplit)) == 1:
+            assert len(new_ordering) == n_slices*len(self)*n_esplit[0]
+        assert max(new_ordering) + 1 == len(new_elements)
         return self.__class__(*new_elements, ordering=new_ordering)
             
             

@@ -109,9 +109,10 @@ class hard_edge_element:
         Return a list of polynomials according to the requested number of slices and the splitting.
         '''
         hamiltonian_split = self.hamiltonian.split(keys=keys, scheme=scheme, **kwargs)
-        step = self.length/n_slices
-        out = [self.__class__(h, length=step) for h in hamiltonian_split]*n_slices
-        return out
+        # N.B. below we have to use the hard_edge_element class explicitly, because if we would have used
+        # self.__class__, then derived classes will interpret the argument h differently. Besides, the result
+        # of the splitting should not be considered as some derived subclass like a cfm anymore.
+        return [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonian_split]*n_slices
         
 class phaserot(hard_edge_element):
     def __init__(self, *tunes, length=1, **kwargs):
