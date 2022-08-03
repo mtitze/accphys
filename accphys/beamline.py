@@ -1,11 +1,7 @@
 import numpy as np
-
-from functools import reduce
 from tqdm import tqdm
 
 from lieops import create_coords, combine, lexp
-from .tools import f_identity, f_compose
-
 from lieops.solver import heyoka
 
 class beamline:
@@ -158,7 +154,6 @@ class beamline:
         # etc.
         # Therefore we have to revert the list below:
         self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering][::-1]
-        self.oneTurnMap = reduce(f_compose, self.oneTurnMapOps, f_identity)
         
     def _calcHeyokaOneTurnMap(self, t=1, **kwargs):
         '''
@@ -176,7 +171,6 @@ class beamline:
             solver = heyoka(ham, t=t*length, **kwargs)
             self.oneTurnMapOps.append(solver)
         self.oneTurnMapOps = self.oneTurnMapOps[::-1]
-        self.oneTurnMap = reduce(f_compose, self.oneTurnMapOps, f_identity)
         
     def calcOneTurnMap(self, *args, method='classic', **kwargs):
         if method == 'heyoka':
@@ -185,8 +179,11 @@ class beamline:
             self._calcClassicOneTurnMap(*args, **kwargs)
 
     def __call__(self, *point):
-        assert hasattr(self, 'oneTurnMap'), 'Need to call self.calcOneTurnMap first.'
-        return self.oneTurnMap(*point)
+        assert hasattr(self, 'oneTurnMapOps'), 'Call self.calcOneTurnMap first.'
+        point1 = point
+        for m in self.oneTurnMapOps:
+            point1 = m(*point1)
+        return point1
     
     def track(self, *xieta, n_reps: int=1, post=lambda x: x, **kwargs):
         '''
@@ -223,33 +220,55 @@ class beamline:
             outstr += self.elements[k].__str__() + '\n'
         return outstr[:-1]
     
-    def split(self, n_slices: int=1, **kwargs):
+    def split(self, **kwargs):
         '''
-        Split elements according to a given splitting scheme.
+        Split beamline elements according to a given splitting scheme.
+        
+        Parameters
+        ----------
+        step: float, optional
+            If given, split the individual elements according to a given length. This
+            is intended to reduce the number of slices for short elements, and automatically
+            find a proper number of slices for long elements.
+            
+        n_slices: int, optional
+            Split each individual element in n_step slices. If given, then the 'step' parameter
+            will be ignored.
         
         Returns
         -------
         bl: beamline
-            A beamline with splitted elements.
-        '''
+            A beamline containing the splitted elements.
+        '''         
+        # split the elements of the current beamline
         new_elements, n_esplit = [], []
+        n_slices = []
         for e in self.elements:
-            esplit = e.split(n_slices=n_slices, **kwargs)
-            n_decomp = len(esplit)//n_slices # the length of the decomposition (equal to the scheme used)
-            new_elements += esplit[:n_decomp] # only the first n_decomp are unique, the rest in this list is a repetition according to the given n_slices
-            n_esplit.append(n_decomp) 
+            if 'n_slices' in kwargs.keys():
+                n_slices_e = kwargs['n_slices']
+            elif 'step' in kwargs.keys():
+                n_slices_e = int(np.ceil(e.length/kwargs['step']))
+                kwargs['n_slices'] = n_slices_e
+            else:
+                raise RuntimeError("Parameters 'step' or 'n_slices' required.")
             
-        jumps = [0] + list(np.cumsum(n_esplit))
+            n_slices.append(n_slices_e)
+            esplit = e.split(**kwargs)
+            n_decomp = len(esplit)//n_slices_e # the length of the decomposition (equal to the scheme used)
+            new_elements += esplit[:n_decomp] # only the first n_decomp are unique, the rest in this list is a repetition according to the given n_slices
+            n_esplit.append(n_decomp)
+            
         # determine the new order
+        jumps = [0] + list(np.cumsum(n_esplit))
         new_ordering = []
+        check1 = 0
         for element_index in self.ordering:
             n_decomp = n_esplit[element_index]
             jump = jumps[element_index]
-            new_ordering += list([j + jump for j in range(n_decomp)])*n_slices
+            n_slices_e = n_slices[element_index]
+            new_ordering += list([j + jump for j in range(n_decomp)])*n_slices_e
 
-        # consistency checks
-        if len(np.unique(n_esplit)) == 1:
-            assert len(new_ordering) == n_slices*len(self)*n_esplit[0]
+        # consistency check
         assert max(new_ordering) + 1 == len(new_elements)
         return self.__class__(*new_elements, ordering=new_ordering)
             
