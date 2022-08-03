@@ -93,7 +93,7 @@ class hard_edge_element:
                 continue
             new_values[tuple([k[p] for p in projection])] = v
         if tol > 0:
-            ham = ham.drop(tol)
+            ham = ham.above(tol)
         self.hamiltonian = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
         
     def copy(self):
@@ -102,6 +102,16 @@ class hard_edge_element:
         for field, value in self.__dict__.items():
             setattr(result, field, value)
         return result
+    
+    def split(self, keys, scheme=[0.5, 1, 0.5], n_slices: int=1, **kwargs):
+        '''
+        Split the Hamiltonian with respect to a set of keys. 
+        Return a list of polynomials according to the requested number of slices and the splitting.
+        '''
+        hamiltonian_split = self.hamiltonian.split(keys=keys, scheme=scheme, **kwargs)
+        step = self.length/n_slices
+        out = [self.__class__(h, length=step) for h in hamiltonian_split]*n_slices
+        return out
         
 class phaserot(hard_edge_element):
     def __init__(self, *tunes, length=1, **kwargs):

@@ -144,7 +144,7 @@ class beamline:
             e = self.elements[n]
             final_components = lexp(e.hamiltonian, t=t*e.length, **kwargs)(*xiv)
             if 'tol' in kwargs2.keys():
-                final_components = [c.drop(kwargs2['tol']) for c in final_components]
+                final_components = [c.above(kwargs2['tol']) for c in final_components]
             return lambda *z: [c(*z) for c in final_components]
         self._uniqueOneTurnMapOps = []
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
@@ -178,7 +178,7 @@ class beamline:
         self.oneTurnMapOps = self.oneTurnMapOps[::-1]
         self.oneTurnMap = reduce(f_compose, self.oneTurnMapOps, f_identity)
         
-    def calcOneTurnMap(self, *args, method='heyoka', **kwargs):
+    def calcOneTurnMap(self, *args, method='classic', **kwargs):
         if method == 'heyoka':
             self._calcHeyokaOneTurnMap(**kwargs)
         if method == 'classic':
@@ -222,7 +222,34 @@ class beamline:
         for k in self.ordering:
             outstr += self.elements[k].__str__() + '\n'
         return outstr[:-1]
-
+    
+    def split(self, n_slices: int=1, **kwargs):
+        '''
+        Split elements according to a given splitting scheme.
+        
+        Returns
+        -------
+        bl: beamline
+            A beamline with splitted elements.
+        '''
+        new_elements, n_esplit = [], []
+        for e in self.elements:
+            esplit = e.split(n_slices=n_slices, **kwargs)
+            new_elements += esplit
+            n_esplit.append(len(esplit)//n_slices) # the length of the decomposition
+            
+        jumps = [0] + list(np.cumsum(n_esplit))
+        # determine the new order
+        new_ordering = []
+        for element_index in self.ordering:
+            n_decomp = n_esplit[element_index]
+            jump = jumps[element_index]
+            new_ordering += list([j + jump for j in range(n_decomp)])*n_slices
+            
+        return self.__class__(*new_elements, ordering=new_ordering)
+            
+            
+        
         
         
         
