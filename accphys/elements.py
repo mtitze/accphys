@@ -2,6 +2,7 @@ import numpy as np
 
 from njet.functions import cos
 from lieops import create_coords, construct, poly
+from lieops.solver.yoshida import get_scheme_ordering
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -103,16 +104,62 @@ class hard_edge_element:
             setattr(result, field, value)
         return result
     
-    def split(self, keys, scheme=[0.5, 1, 0.5], n_slices: int=1, **kwargs):
+    def split(self, keys, scheme=[0.5, 1, 0.5], n_slices: int=1, combine=True, return_scheme_ordering=False, **kwargs):
         '''
         Split the Hamiltonian with respect to a set of keys. 
         Return a list of polynomials according to the requested number of slices and the splitting.
+        
+        Parameters
+        ----------
+        scheme: list, optional
+            A list of coefficients [a1, b1, a2, b2, ...] so that an individual slice of length h
+            of the given Hamiltonian H = H1 + H2 has the form:
+            exp(h*H) = exp(h*a1*H1) o exp(h*b1*H2) o exp(h*a2*H1) o exp(h*b2*H2) o ...
+            
+        n_slices: int, optional
+            The number of requested slices, so that
+            exp(H) = exp(h*H)**n_slices
+            holds.
+        
+        combine: boolean, optional
+            Combine adjacent operators of the same type, if possible.
+            
+        Returns
+        -------
+        list
+            A list of hard_edge_element objects, representing a slicing of the current element.
         '''
-        hamiltonian_split = self.hamiltonian.split(keys=keys, scheme=scheme, **kwargs)
         # N.B. below we have to use the hard_edge_element class explicitly, because if we would have used
         # self.__class__, then derived classes will interpret the argument h differently. Besides, the result
-        # of the splitting should not be considered as some derived subclass like a cfm anymore.
-        return [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonian_split]*n_slices
+        # of the splitting should not be considered as some derived subclass like a cfm.
+        if len(scheme)%2 == 1 and n_slices > 1 and combine:
+            # In this case the given scheme of coefficients, belonging to terms of the two operators, 
+            # have its end and start belonging to the same operator. They can thus be combined together, which is done here.
+            start = [scheme[0]]
+            center = scheme[1:]
+            center[-1] *= 2
+            end = scheme[1:]
+            hamiltonians_start = self.hamiltonian.split(keys=keys, scheme=start, check=False, **kwargs) # list of length 1
+            complement_keys = [k for k in self.hamiltonian.keys() if k not in keys] # need to take the complement of the keys, because the center starts with the second operator, same with the end
+            hamiltonians_center = self.hamiltonian.split(keys=complement_keys, scheme=center, check=False, **kwargs) 
+            hamiltonians_end = self.hamiltonian.split(keys=complement_keys, scheme=end, check=False, **kwargs)
+            e_start = [hard_edge_element(hamiltonians_start[0], length=self.length/n_slices)]
+            e_center = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_center]
+            e_end = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_end]
+            new_elements = e_start + e_center*(n_slices - 1) + e_end
+            if return_scheme_ordering:
+                return new_elements, get_scheme_ordering(start + center*(n_slices - 1) + end)
+            else:
+                return new_elements
+        else:
+            # len(scheme) even or n_slices == 1
+            hamiltonians_split = self.hamiltonian.split(keys=keys, scheme=scheme, **kwargs)
+            new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_split]*n_slices
+            if return_scheme_ordering:
+                return new_elements, get_scheme_ordering(scheme=scheme)*n_slices
+            else:
+                return new_elements
+        
         
 class phaserot(hard_edge_element):
     def __init__(self, *tunes, length=1, **kwargs):

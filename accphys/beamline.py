@@ -239,10 +239,11 @@ class beamline:
         -------
         bl: beamline
             A beamline containing the splitted elements.
-        '''         
+        '''
         # split the elements of the current beamline
-        new_elements, n_esplit = [], []
-        n_slices = []
+        new_elements = []
+        new_ordering_indices = []
+        ordering_index = 0
         for e in self.elements:
             if 'n_slices' in kwargs.keys():
                 n_slices_e = kwargs['n_slices']
@@ -251,30 +252,27 @@ class beamline:
                 kwargs['n_slices'] = n_slices_e
             else:
                 raise RuntimeError("Parameters 'step' or 'n_slices' required.")
+            assert n_slices_e >= 1
             
-            n_slices.append(n_slices_e)
-            esplit = e.split(**kwargs)
-            n_decomp = len(esplit)//n_slices_e # the length of the decomposition (equal to the scheme used)
-            new_elements += esplit[:n_decomp] # only the first n_decomp are unique, the rest in this list is a repetition according to the given n_slices
-            n_esplit.append(n_decomp)
+            esplit, ordering = e.split(return_scheme_ordering=True, **kwargs)
             
-        # determine the new order
-        jumps = [0] + list(np.cumsum(n_esplit))
+            n_unique_elements = max(ordering) + 1
+            unique_element_indices = list(range(n_unique_elements))
+            new_elements += [esplit[ordering.index(k)] for k in unique_element_indices] # take the first occurences
+            
+            ordering_element = (np.array(ordering) + ordering_index).tolist()
+            ordering_index += n_unique_elements
+            
+            new_ordering_indices.append(ordering_element)
+                                        
+        # construct the new ordering
         new_ordering = []
-        check1 = 0
-        for element_index in self.ordering:
-            n_decomp = n_esplit[element_index]
-            jump = jumps[element_index]
-            n_slices_e = n_slices[element_index]
-            new_ordering += list([j + jump for j in range(n_decomp)])*n_slices_e
-
-        # consistency check
-        assert max(new_ordering) + 1 == len(new_elements)
+        for k in self.ordering:
+            new_ordering += new_ordering_indices[k]
+            
+        assert max(new_ordering) + 1 == len(new_elements) # consistency check
         return self.__class__(*new_elements, ordering=new_ordering)
             
             
-        
-        
-        
-        
+
         
