@@ -28,12 +28,12 @@ class beamline:
         else:
             requested_ele_indices = self.ordering[key]
         if type(requested_ele_indices) != list:
-            requested_ele_indices = [requested_ele_indices]
-            
-        requested_unique_ele_indices = list(np.unique(requested_ele_indices))
-        requested_eles = [self.elements[e] for e in requested_unique_ele_indices]
-        new_ordering = [requested_unique_ele_indices.index(e) for e in requested_ele_indices] # starts from zero up to length of the unique (new) elements
-        return self.__class__(*requested_eles, ordering=new_ordering)
+            return self.elements[requested_ele_indices]
+        else:
+            requested_unique_ele_indices = list(np.unique(requested_ele_indices))
+            requested_eles = [self.elements[e] for e in requested_unique_ele_indices]
+            new_ordering = [requested_unique_ele_indices.index(e) for e in requested_ele_indices] # starts from zero up to length of the unique (new) elements
+            return self.__class__(*requested_eles, ordering=new_ordering)
     
     def __setitem__(self, key, value):
         if value not in self:
@@ -109,8 +109,8 @@ class beamline:
         **kwargs
             Optional keyword arguments passed to lieops.ops.lie.combine routine
         '''            
-        hamiltonians = [e.hamiltonian for e in self][::-1]
-        lengths = np.array(self.lengths()[::-1])
+        hamiltonians = [e.hamiltonian for e in self]
+        lengths = np.array(self.lengths())
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
                                                                                      lengths=lengths, **kwargs)
         return sum(self._magnus_series.values())
@@ -145,24 +145,16 @@ class beamline:
         self._uniqueOneTurnMapOps = []
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
             self._uniqueOneTurnMapOps.append(create_elemap(n, **kwargs))
-            
-        # Now define the entire one-turn map as composition of the flows we computed.
-        # 'reduce' will apply the rightmost function in the given list first, so that e.g.
-        # [f0, f1, f2]
-        # will be executed as
-        # f0(f1(f2(z)))
-        # etc.
-        # Therefore we have to revert the list below:
-        self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering][::-1]
+        self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
         
     def _calcHeyokaOneTurnMap(self, t=1, **kwargs):
         '''
         Integrate the equations of motion using the Heyoka solver, see
         https://bluescarni.github.io/heyoka/index.html
         '''
-        # N.B. t=1 here, because t corresponds to the time in the Heyoka integrator. In contrast to
-        # the flow, which requires a -1 in the exponent, the signum is already taken care of by
-        # integrating the equations of motion.
+        # N.B. t=1 here by default, because t corresponds to the time in the Heyoka integrator. In contrast to
+        # the flow, which requires a "-1" in the exponent, the signum is already taken care of by
+        # integrating the equations of motion in the Heyoka solver.
         self.oneTurnMapOps = []
         for k in tqdm(range(len(self)), disable=kwargs.get('disable_tqdm', False)):
             element_index = self.ordering[k]
@@ -170,7 +162,6 @@ class beamline:
             length = self.elements[element_index].length
             solver = heyoka(ham, t=t*length, **kwargs)
             self.oneTurnMapOps.append(solver)
-        self.oneTurnMapOps = self.oneTurnMapOps[::-1]
         
     def calcOneTurnMap(self, *args, method='classic', **kwargs):
         if method == 'heyoka':
@@ -180,10 +171,9 @@ class beamline:
 
     def __call__(self, *point):
         assert hasattr(self, 'oneTurnMapOps'), 'Call self.calcOneTurnMap first.'
-        point1 = point
         for m in self.oneTurnMapOps:
-            point1 = m(*point1)
-        return point1
+            point = m(*point)
+        return point
     
     def track(self, *xieta, n_reps: int=1, post=lambda x: x, **kwargs):
         '''
@@ -251,7 +241,7 @@ class beamline:
                 n_slices_e = int(np.ceil(e.length/kwargs['step']))
                 kwargs['n_slices'] = n_slices_e
             else:
-                raise RuntimeError("Parameters 'step' or 'n_slices' required.")
+                raise RuntimeError("For splitting, at least one of the parameters ['step', 'n_slices'] is required.")
             assert n_slices_e >= 1
             
             esplit, ordering = e.split(return_scheme_ordering=True, **kwargs)

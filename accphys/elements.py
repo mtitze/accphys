@@ -122,7 +122,9 @@ class hard_edge_element:
             holds.
         
         combine: boolean, optional
-            Combine adjacent operators of the same type, if possible.
+            Sum adjacent operators of the same type (within the same element), if possible.
+            Note that operators belonging to different elements will not be combined (as they do not
+            commute in general).
             
         Returns
         -------
@@ -139,16 +141,20 @@ class hard_edge_element:
             center = scheme[1:]
             center[-1] *= 2
             end = scheme[1:]
-            hamiltonians_start = self.hamiltonian.split(keys=keys, scheme=start, check=False, **kwargs) # list of length 1
+            new_scheme = start + center*(n_slices - 1) + end
+
             complement_keys = [k for k in self.hamiltonian.keys() if k not in keys] # need to take the complement of the keys, because the center starts with the second operator, same with the end
+            hamiltonians_start = self.hamiltonian.split(keys=keys, scheme=start, check=False, **kwargs) # list of length 1
             hamiltonians_center = self.hamiltonian.split(keys=complement_keys, scheme=center, check=False, **kwargs) 
             hamiltonians_end = self.hamiltonian.split(keys=complement_keys, scheme=end, check=False, **kwargs)
+
             e_start = [hard_edge_element(hamiltonians_start[0], length=self.length/n_slices)]
             e_center = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_center]
             e_end = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_end]
             new_elements = e_start + e_center*(n_slices - 1) + e_end
+
             if return_scheme_ordering:
-                return new_elements, get_scheme_ordering(start + center*(n_slices - 1) + end)
+                return new_elements, get_scheme_ordering(new_scheme)
             else:
                 return new_elements
         else:
