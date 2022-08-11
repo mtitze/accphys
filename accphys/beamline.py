@@ -1,8 +1,10 @@
 import numpy as np
 from tqdm import tqdm
 
-from lieops import create_coords, combine, lexp
+from lieops import create_coords, combine, lexp, hadamard
 from lieops.solver import heyoka
+
+from .elements import hard_edge_element
 
 class beamline:
     
@@ -263,6 +265,18 @@ class beamline:
         assert max(new_ordering) + 1 == len(new_elements) # consistency check
         return self.__class__(*new_elements, ordering=new_ordering)
             
-            
-
+    def hadamard(self, keys, **kwargs):
+        '''
+        Rearrange the Hamiltonians of the elements in the current beamline according to given keys.
+        Further details see lieops 'hadamard' routine.
         
+        Returns
+        -------
+        beamline
+            A beamline of hard_edge_element(s) corresponding to the output of hadamard.
+        '''
+        hamiltonians = [e.hamiltonian*e.length for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline; no minus sign here... TODO: check tracking t-parameter
+
+        g1, g2 = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power is necessary here ... TODO: may need to use Heyoka instead as well
+        new_elements = [hard_edge_element(h, length=1) for h in g1] + [hard_edge_element(g2, length=1)] 
+        return self.__class__(*new_elements[::-1])
