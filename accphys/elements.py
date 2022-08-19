@@ -22,7 +22,7 @@ class hard_edge_element:
             self.full_hamiltonian = kwargs['full_hamiltonian']
         elif len(args) == 1: # full_hamiltonian preference over Hamiltonian from beta0-calculation.
             a = args[0]
-            if type(a) == poly:
+            if isinstance(a, poly):
                 self.full_hamiltonian = a
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
@@ -134,6 +134,13 @@ class hard_edge_element:
         # N.B. below we have to use the hard_edge_element class explicitly, because if we would have used
         # self.__class__, then derived classes will interpret the argument h differently. Besides, the result
         # of the splitting should not be considered as some derived subclass like a cfm.
+
+        # We also do not use the poly.split routine at this point here, because we want to store all the new lengths in the respective elements and keep the individual hamiltonians unchanged. This may become useful at another step, where only the integration lengths are changed.
+        
+        ham1 = self.hamiltonian.extract(key_cond=lambda x: x in keys)
+        ham2 = self.hamiltonian.extract(key_cond=lambda x: x not in keys)
+        scheme = list(scheme)
+
         if len(scheme)%2 == 1 and n_slices > 1 and combine:
             # In this case the given scheme of coefficients, belonging to terms of the two operators, 
             # have its end and start belonging to the same operator. They can thus be combined together, which is done here.
@@ -142,29 +149,23 @@ class hard_edge_element:
             center[-1] *= 2
             end = scheme[1:]
             new_scheme = start + center*(n_slices - 1) + end
-
-            complement_keys = [k for k in self.hamiltonian.keys() if k not in keys] # need to take the complement of the keys, because the center starts with the second operator, same with the end
-            hamiltonians_start = self.hamiltonian.split(keys=keys, scheme=start, check=False, **kwargs) # list of length 1
-            hamiltonians_center = self.hamiltonian.split(keys=complement_keys, scheme=center, check=False, **kwargs) 
-            hamiltonians_end = self.hamiltonian.split(keys=complement_keys, scheme=end, check=False, **kwargs)
-
-            e_start = [hard_edge_element(hamiltonians_start[0], length=self.length/n_slices)]
-            e_center = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_center]
-            e_end = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_end]
-            new_elements = e_start + e_center*(n_slices - 1) + e_end
-
-            if return_scheme_ordering:
-                return new_elements, get_scheme_ordering(new_scheme)
-            else:
-                return new_elements
         else:
             # len(scheme) even or n_slices == 1
-            hamiltonians_split = self.hamiltonian.split(keys=keys, scheme=scheme, **kwargs)
-            new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians_split]*n_slices
-            if return_scheme_ordering:
-                return new_elements, get_scheme_ordering(scheme=scheme)*n_slices
+            new_scheme = scheme*n_slices
+            
+        new_elements = []
+        for k in range(len(new_scheme)):
+            f = new_scheme[k]
+            if k%2 == 0:
+                ham = ham1
             else:
-                return new_elements
+                ham = ham2
+            new_elements.append(hard_edge_element(ham, length=self.length/n_slices*f))
+
+        if return_scheme_ordering:
+            return new_elements, get_scheme_ordering(new_scheme)
+        else:
+            return new_elements
         
         
 class phaserot(hard_edge_element):

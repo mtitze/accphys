@@ -170,6 +170,7 @@ class beamline:
             self._calcHeyokaOneTurnMap(**kwargs)
         if method == 'classic':
             self._calcClassicOneTurnMap(*args, **kwargs)
+        self._oneTurnMapMethod = method
 
     def __call__(self, *point):
         assert hasattr(self, 'oneTurnMapOps'), 'Call self.calcOneTurnMap first.'
