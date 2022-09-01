@@ -9,7 +9,7 @@ from accphys.elements import *
 '''
 
 
-@pytest.mark.parametrize("kx,ky,g,h,beta0",
+@pytest.mark.parametrize("kx, ky, g, h, beta0",
                          [(0.321, -2.1, 0, 5.2, 0.753),
                           (0.42, 2.21, -0.4616, -5.32, 0.863)])
 def test_cfm(kx, ky, g, h, beta0, tol=1e-15):

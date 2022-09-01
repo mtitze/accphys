@@ -1,7 +1,8 @@
 import numpy as np
 from tqdm import tqdm
+import warnings
 
-from lieops import create_coords, combine, lexp, hadamard
+from lieops import create_coords, combine, lexp, hadamard, poly
 from lieops.solver import heyoka
 
 from .elements import hard_edge_element
@@ -116,8 +117,36 @@ class beamline:
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
                                                                                      lengths=lengths, **kwargs)
         return sum(self._magnus_series.values())
+    
+    def breakdown(self, check=False):
+        '''
+        Obtain a list of unique hamiltonians and their relation to the current beamline elements.
+        '''
+        hh = [] # a helper list to gather the unique hamiltonians
+        uniques = []
+        for k in range(len(self.elements)):
+            element = self.elements[k]
+            ham = element.hamiltonian
+            length = element.length
+            if ham not in hh:
+                hh.append(ham)
+                uniques.append({'hamiltonian': ham, 'length': [length], 'element_index': [k]})
+            else:
+                index = hh.index(ham)
+                uniques[index]['length'].append(length)
+                uniques[index]['element_index'].append(k)
+                
+        if check:
+            # consistency check if there are 'different' elements having the same Hamiltonian *and* the same length:
+            k = 0
+            for u in uniques:
+                if len(np.unique(u['length'])) < len(u['length']):
+                    warnings.warn(f'Entry {k} has non-unique lengths.')
+                k += 1
         
-    def _calcClassicOneTurnMap(self, half=False, t=-1, *args, **kwargs):
+        return uniques
+        
+    def _calcOneTurnMap_bruteforce(self, half=False, t=-1, *args, **kwargs):
         '''
         Integrate the equations of motion by 'brute-force', namely by calculating the
         flow(s) exp(-:H:) applied to coordinate functions, up to specific orders.
@@ -140,23 +169,51 @@ class beamline:
         # (these elements are stored in self.elements).
         def create_elemap(n, **kwargs2):
             e = self.elements[n]
-            final_components = lexp(e.hamiltonian, t=t*e.length, **kwargs)(*xiv)
+            final_components = lexp(e.hamiltonian*e.length, **kwargs)(*xiv, t=t)
             if 'tol' in kwargs2.keys():
                 final_components = [c.above(kwargs2['tol']) for c in final_components]
-            return lambda *z: [c(*z) for c in final_components]
+            return lambda *z: [c(*z) for c in final_components] # z: point of interest
         self._uniqueOneTurnMapOps = []
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
             self._uniqueOneTurnMapOps.append(create_elemap(n, **kwargs))
         self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
         
-    def _calcHeyokaOneTurnMap(self, t=1, **kwargs):
+    def _calcOneTurnMap_heyoka(self, **kwargs):
         '''
         Integrate the equations of motion using the Heyoka solver, see
         https://bluescarni.github.io/heyoka/index.html
+        
+        Attention: Routine not correct; output doesn't take care of non-linearities.
+        May be removed or updated soon.
         '''
-        # N.B. t=1 here by default, because t corresponds to the time in the Heyoka integrator. In contrast to
-        # the flow, which requires a "-1" in the exponent, the signum is already taken care of by
-        # integrating the equations of motion in the Heyoka solver.
+        bd = self.breakdown()
+        for u in tqdm(bd, disable=kwargs.get('disable_tqdm', False)):
+            lengths = np.array(u['length'])
+            element_indices = np.array(u['element_index'])
+            hamiltonian = u['hamiltonian']
+            fl = hamiltonian.lexp()
+        
+            # The 'time'-grid passed to the Heyoka integrator has to be strictly monotonic. Therefore we have to sort first and get rid of the non-unique elements:
+            t_values, ind, inv_ind = np.unique(lengths, return_index=True, return_inverse=True)
+            fl.calcFlow(method='heyoka', t=t_values)
+            # now assign the individual flow to each of the given elements (these elements are considered unique; see check option in self.breakdown)
+            for j in range(len(element_indices)):
+                self.elements[element_indices[j]]._flow = [poly(values={k: v[inv_ind][j] for k, v in flc.items()}) for flc in fl.flow]
+
+        # now set the one-turn maps:
+        self.oneTurnMapOps = []
+        for e in self:
+            op = e.hamiltonian.lexp()
+            op.flow = e._flow
+            self.oneTurnMapOps.append(op)
+            
+    def _calcOneTurnMap_heyoka1by1(self, t=1, **kwargs):
+        '''
+        Using the Heyoka solver one-by-one on each element. This may become very slow for large beamlines.
+        
+        Further details see
+        https://bluescarni.github.io/heyoka/index.html
+        '''
         self.oneTurnMapOps = []
         for k in tqdm(range(len(self)), disable=kwargs.get('disable_tqdm', False)):
             element_index = self.ordering[k]
@@ -165,11 +222,13 @@ class beamline:
             solver = heyoka(ham, t=t*length, **kwargs)
             self.oneTurnMapOps.append(solver)
         
-    def calcOneTurnMap(self, *args, method='classic', **kwargs):
-        if method == 'heyoka':
-            self._calcHeyokaOneTurnMap(**kwargs)
-        if method == 'classic':
-            self._calcClassicOneTurnMap(*args, **kwargs)
+    def calcOneTurnMap(self, *args, method='bruteforce', **kwargs):
+        if method == 'bruteforce':
+            self._calcOneTurnMap_bruteforce(*args, **kwargs)
+        elif method == 'heyoka':
+            self._calcOneTurnMap_heyoka(**kwargs)
+        elif method == 'heyoka1by1':
+            self._calcOneTurnMap_heyoka1by1(**kwargs)
         self._oneTurnMapMethod = method
 
     def __call__(self, *point):
@@ -276,7 +335,9 @@ class beamline:
         beamline
             A beamline of hard_edge_element(s) corresponding to the output of hadamard.
         '''
-        hamiltonians = [e.hamiltonian*e.length for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline; no minus sign here... TODO: check tracking t-parameter
+        t = kwargs.get('t', 1)
+        hamiltonians = [e.hamiltonian*e.length*t for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline
+        # TODO: Why no minus sign here?
 
         g1, g2 = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power is necessary here ... TODO: may need to use Heyoka instead as well
         new_elements = [hard_edge_element(h, length=1) for h in g1] + [hard_edge_element(g2, length=1)] 

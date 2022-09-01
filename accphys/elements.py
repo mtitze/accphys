@@ -2,7 +2,7 @@ import numpy as np
 
 from njet.functions import cos
 from lieops import create_coords, construct, poly
-from lieops.solver.yoshida import get_scheme_ordering
+from lieops.solver.splitting import get_scheme_ordering
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -49,7 +49,7 @@ class hard_edge_element:
         _ = kwargs.pop('power', None) # n.b. this will not remove the key in any calling instance
         drift_s = construct(sqrt, px, py, psigma, power=sqrtexp, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power.
         hamiltonian = psigma - drift_s
-        hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
+        hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
         self.full_hamiltonian = hamiltonian
         self._prop = {}
         self._prop['beta0'] = beta0
@@ -344,9 +344,9 @@ class cfm(hard_edge_element):
         H_full = H_drift + H_field
         
         # remove any remaining constants; they do not affect the equations of motion.
-        H_full.pop((0, 0, 0, 0, 0, 0), None)
-        H_drift.pop((0, 0, 0, 0, 0, 0), None)
-        H_field.pop((0, 0, 0, 0, 0, 0), None)
+        H_full = H_full.pop((0, 0, 0, 0, 0, 0), None)
+        H_drift = H_drift.pop((0, 0, 0, 0, 0, 0), None)
+        H_field = H_field.pop((0, 0, 0, 0, 0, 0), None)
 
         out = {}
         out['kx'] = kx
@@ -479,8 +479,8 @@ class rfc(hard_edge_element):
         #hamiltonian = construct(cos, sigma/beta0*-k + self.phase, **kwargs)*self.voltage
         rf_potential = construct(cos, -sigma/self.beta0*self.frequency + self.phase, power=p, **kwargs)*self.voltage/float(np.pi)
         hamiltonian = self._prop['full'] - rf_potential
-        hamiltonian.pop((0, 0, 0, 0, 0, 0), None) # remove any constant term
-        self.full_hamiltonian = hamiltonian
+        self.full_hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None) # remove any constant term
+        
         
         
         
