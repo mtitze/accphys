@@ -99,7 +99,7 @@ class beamline:
         for e in self.elements:
             e.setHamiltonian(*args, **kwargs)
             
-    def magnus(self, power=1, bch_minus_sign=-1, **kwargs):
+    def magnus(self, power=1, bch_sign=-1, **kwargs):
         '''
         Combine the individual Hamiltonians by means of Magnus series.
         
@@ -112,11 +112,11 @@ class beamline:
         **kwargs
             Optional keyword arguments passed to lieops.ops.lie.combine routine
         '''            
-        hamiltonians = [e.hamiltonian*bch_minus_sign for e in self]
+        hamiltonians = [e.hamiltonian*bch_sign for e in self]
         lengths = np.array(self.lengths())
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
                                                                                      lengths=lengths, **kwargs)
-        return sum(self._magnus_series.values())*bch_minus_sign
+        return sum(self._magnus_series.values())*bch_sign
     
     def breakdown(self, check=False):
         '''
