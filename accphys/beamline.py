@@ -60,7 +60,7 @@ class beamline:
     def index(self, value):
         return self.elements.index(value)
     
-    def append(self, value):
+    def append_element(self, value):
         '''
         Append an element to the current beamline.
         '''
@@ -70,6 +70,26 @@ class beamline:
         else:
             index = self.elements.index(value)
         self.ordering.append(index)
+        
+    def __add__(self, other):
+        result = self.copy()
+        if isinstance(other, type(self)):
+            for e in other:
+                result.append_element(e)
+        elif isinstance(other, type(self[0])): # a single element
+            result.append_element(other)
+        else:
+            raise RuntimeError(f'Addition between objects of type(s) {type(self)} and {type(other)} not supported.')            
+        return result
+            
+    def __radd__(self, other):
+        if isinstance(other, type(self)):
+            return other.__add__(self)
+        elif isinstance(other, type(self[0])):
+            result = self.__class__(other)
+            return result + self
+        else:
+            raise RuntimeError(f'Addition between objects of type(s) {type(other)} and {type(self)} not supported.')
         
     def lengths(self):
         '''
@@ -86,10 +106,7 @@ class beamline:
         '''
         assert all([hasattr(e, 'copy') for e in self.elements])
         result = self.__class__(*[e.copy() for e in self.elements])
-        # set all remaining fields (including the current ordering)
-        for field, value in self.__dict__.items():
-            if field != 'elements':
-                setattr(result, field, value)
+        result.ordering = [e for e in self.ordering]
         return result
         
     def setHamiltonians(self, *args, **kwargs):
@@ -116,7 +133,7 @@ class beamline:
         lengths = np.array(self.lengths())
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
                                                                                      lengths=lengths, **kwargs)
-        return sum(self._magnus_series.values())*bch_sign
+        return self.__class__(hard_edge_element(sum(self._magnus_series.values())*bch_sign, length=1))
     
     def breakdown(self, check=False):
         '''
