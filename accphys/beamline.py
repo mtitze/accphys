@@ -79,17 +79,27 @@ class beamline:
         elif isinstance(other, type(self[0])): # a single element
             result.append_element(other)
         else:
-            raise RuntimeError(f'Addition between objects of type(s) {type(self)} and {type(other)} not supported.')            
+            raise TypeError(f'Addition between objects of types {type(self)} and {type(other)} not supported.')            
         return result
             
     def __radd__(self, other):
         if isinstance(other, type(self)):
             return other.__add__(self)
-        elif isinstance(other, type(self[0])):
+        elif isinstance(other, type(self[0])): # a single element
             result = self.__class__(other)
             return result + self
         else:
-            raise RuntimeError(f'Addition between objects of type(s) {type(other)} and {type(self)} not supported.')
+            raise TypeError(f'Addition between objects of types {type(other)} and {type(self)} not supported.')
+            
+    def __mul__(self, other):
+        assert type(other) == int, 'Only integer values allowed.'
+        result = self
+        for k in range(other):
+            result += self
+        return result
+    
+    def __rmul__(self, other):
+        return self*other
         
     def lengths(self):
         '''
