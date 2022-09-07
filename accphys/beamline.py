@@ -93,9 +93,8 @@ class beamline:
             
     def __mul__(self, other):
         assert type(other) == int, 'Only integer values allowed.'
-        result = self
-        for k in range(other):
-            result += self
+        result = self.copy()
+        result.ordering = result.ordering*other
         return result
     
     def __rmul__(self, other):
