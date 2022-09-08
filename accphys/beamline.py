@@ -12,13 +12,33 @@ class beamline:
     def __init__(self, *elements, **kwargs):
         '''
         Class to model an accelerator beamline.
+        
+        Parameters
+        ----------
+        elements
+            A series containing elements (or Hamiltonians in form of poly objects). 
+            If a poly object has been identified in the series, then a hard-edge model 
+            for that element is assumed.
+            
+        lengths: array-like, optional
+            Optional lengths in case that Hamiltonians are given. Will be ignored if elements are provided.
         '''
-        # consistency checks
-        assert len(elements) > 0
+        # check input and make it consistent
+        elements = list(elements) # for item assignment below
+        n_elements = len(elements)
+        assert n_elements > 0
+        for k in range(n_elements):
+            # A default hard-edge model will be used. This feature is made for convenience usage.
+            if isinstance(elements[k], poly):
+                elements[k] = hard_edge_element(elements[k])
         assert all([hasattr(e, 'hamiltonian') for e in elements])
         dim0 = elements[0].hamiltonian.dim
         assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
         
+        if 'lenghts' in kwargs.keys():
+            for k in range(n_elements):
+                elements[k].length = kwargs['lengths'][k]
+            
         self.elements = [e.copy() for e in elements]
         self.ordering = kwargs.get('ordering', list(range(len(elements))))
         
