@@ -139,11 +139,19 @@ class hard_edge_element:
         
         ham1 = self.hamiltonian.extract(key_cond=lambda x: x in keys)
         ham2 = self.hamiltonian.extract(key_cond=lambda x: x not in keys)
+        if ham1 == 0 or ham2 == 0:
+            # in this case we just return a copy of the original element
+            if return_scheme_ordering:
+                new_elements = [self.copy()]
+                return new_elements, [0]
+            else:
+                return [new_elements]
+        
         scheme = list(scheme)
-
         if len(scheme)%2 == 1 and n_slices > 1 and combine:
             # In this case the given scheme of coefficients, belonging to terms of the two operators, 
-            # have its end and start belonging to the same operator. They can thus be combined together, which is done here.
+            # have its end and start belonging to the same operator. For more than one slice they can therefore
+            # be combined together, which is done here.
             start = [scheme[0]]
             center = scheme[1:]
             center[-1] *= 2
