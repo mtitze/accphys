@@ -20,7 +20,7 @@ def test_quad_ref(x0, y0, px0, py0, gstr, length, tol=1e-14):
     #b3 = beamline(quad)
     
     b1.calcOneTurnMap(power=40)
-    b2.calcOneTurnMap(method='heyoka1by1')
+    b2.calcOneTurnMap(method='heyoka')
     #b3.calcOneTurnMap(method='tao')
     
     # expectation
@@ -81,14 +81,14 @@ def test_splitting1(xi0, eta0, yoshida_order, n_slices, tol):
     ele = hard_edge_element(ham, length=0.18)
     
     bl = beamline(ele)
-    bl.calcOneTurnMap(method='heyoka1by1')
+    bl.calcOneTurnMap(method='heyoka')
     
     y1 = yoshida()
     yoshida_scheme = y1.build(yoshida_order)
 
     keys = [(0, 2), (1, 1), (2, 0)]
     bls = bl.split(keys=keys, scheme=yoshida_scheme, n_slices=n_slices)
-    bls.calcOneTurnMap(method='heyoka1by1')
+    bls.calcOneTurnMap(method='heyoka')
     
     result = bl(xi0, eta0)
     result_s = bls(xi0, eta0)

@@ -104,7 +104,7 @@ class hard_edge_element:
             setattr(result, field, value)
         return result
     
-    def split(self, keys, scheme=[0.5, 1, 0.5], n_slices: int=1, combine=True, return_scheme_ordering=False, **kwargs):
+    def split(self, keys=[], scheme=[0.5, 1, 0.5], n_slices: int=1, combine=True, return_scheme_ordering=False, **kwargs):
         '''
         Split the Hamiltonian with respect to a set of keys. 
         Return a list of polynomials according to the requested number of slices and the splitting.
@@ -140,12 +140,13 @@ class hard_edge_element:
         ham1 = self.hamiltonian.extract(key_cond=lambda x: x in keys)
         ham2 = self.hamiltonian.extract(key_cond=lambda x: x not in keys)
         if ham1 == 0 or ham2 == 0:
-            # in this case we just return a copy of the original element
+            # in this case we just return a slicing of the original element
+            new_elements = [hard_edge_element(self.hamiltonian, length=self.length/n_slices) for k in range(n_slices)]
+            
             if return_scheme_ordering:
-                new_elements = [self.copy()]
-                return new_elements, [0]
+                return new_elements, [0]*n_slices
             else:
-                return [new_elements]
+                return new_elements
         
         scheme = list(scheme)
         if len(scheme)%2 == 1 and n_slices > 1 and combine:

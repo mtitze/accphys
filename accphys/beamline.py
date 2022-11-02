@@ -33,6 +33,9 @@ class beamline:
                 elements[k] = hard_edge_element(elements[k])
             elif isinstance(elements[k], lexp):
                 elements[k] = hard_edge_element(elements[k].argument)
+            else:
+                if not isinstance(elements[k], hard_edge_element):
+                    raise TypeError(f'Type of {k}-th entry {type(elements[k])} not recognized.')
         assert all([hasattr(e, 'hamiltonian') for e in elements])
         dim0 = elements[0].hamiltonian.dim
         assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
@@ -225,37 +228,8 @@ class beamline:
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
             self._uniqueOneTurnMapOps.append(create_elemap(n, **kwargs))
         self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
-        
-    def _calcOneTurnMap_heyoka(self, **kwargs):
-        '''
-        Integrate the equations of motion using the Heyoka solver, see
-        https://bluescarni.github.io/heyoka/index.html
-        
-        Attention: Routine not correct; output doesn't take care of non-linearities.
-        May be removed or updated soon.
-        '''
-        bd = self.breakdown()
-        for u in tqdm(bd, disable=kwargs.get('disable_tqdm', False)):
-            lengths = np.array(u['length'])
-            element_indices = np.array(u['element_index'])
-            hamiltonian = u['hamiltonian']
-            fl = hamiltonian.lexp()
-        
-            # The 'time'-grid passed to the Heyoka integrator has to be strictly monotonic. Therefore we have to sort first and get rid of the non-unique elements:
-            t_values, ind, inv_ind = np.unique(lengths, return_index=True, return_inverse=True)
-            fl.calcFlow(method='heyoka', t=t_values)
-            # now assign the individual flow to each of the given elements (these elements are considered unique; see check option in self.breakdown)
-            for j in range(len(element_indices)):
-                self.elements[element_indices[j]]._flow = [poly(values={k: v[inv_ind][j] for k, v in flc.items()}) for flc in fl.flow]
-
-        # now set the one-turn maps:
-        self.oneTurnMapOps = []
-        for e in self:
-            op = e.hamiltonian.lexp()
-            op.flow = e._flow
-            self.oneTurnMapOps.append(op)
             
-    def _calcOneTurnMap_heyoka1by1(self, t=1, **kwargs):
+    def _calcOneTurnMap_heyoka(self, t=1, **kwargs):
         '''
         Using the Heyoka solver one-by-one on each element. This may become very slow for large beamlines.
         
@@ -269,14 +243,31 @@ class beamline:
             length = self.elements[element_index].length
             solver = heyoka(ham, t=t*length, **kwargs)
             self.oneTurnMapOps.append(solver)
+            
+    def _calcOneTurnMap_yoshida(self, t=1, **kwargs):
+        '''
+        Using Yoshida split & Channell's symplectic integrator.
+        '''
+        # create_elemap necessary to construct functions in the loop below
+        # This function will be used to compute the flow for each of the unique elements in the lattice
+        # (these elements are stored in self.elements).
+        def create_elemap(n):
+            e = self.elements[n]
+            ele_map = lexp(e.hamiltonian*e.length)
+            ele_map.calcFlow(method='yoshida', t=t, **kwargs)
+            return lambda *z: ele_map(*z)
+        self._uniqueOneTurnMapOps = []
+        for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
+            self._uniqueOneTurnMapOps.append(create_elemap(n))
+        self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
         
     def calcOneTurnMap(self, *args, method='bruteforce', **kwargs):
         if method == 'bruteforce':
             self._calcOneTurnMap_bruteforce(*args, **kwargs)
+        elif method == 'yoshida':
+            self._calcOneTurnMap_yoshida(*args, **kwargs)
         elif method == 'heyoka':
             self._calcOneTurnMap_heyoka(**kwargs)
-        elif method == 'heyoka1by1':
-            self._calcOneTurnMap_heyoka1by1(**kwargs)
         self._oneTurnMapMethod = method
 
     def __call__(self, *point):
