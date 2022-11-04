@@ -220,7 +220,7 @@ class beamline:
         # (these elements are stored in self.elements).
         def create_elemap(n, **kwargs2):
             e = self.elements[n]
-            final_components = lexp(-e.hamiltonian*e.length, **kwargs)(*xiv, t=t)
+            final_components = lexp(e.hamiltonian*e.length, **kwargs)(*xiv, t=t) # TODO: sign
             if 'tol' in kwargs2.keys():
                 final_components = [c.above(kwargs2['tol']) for c in final_components]
             return lambda *z: [c(*z) for c in final_components] # z: point of interest
@@ -253,9 +253,10 @@ class beamline:
         # (these elements are stored in self.elements).
         def create_elemap(n):
             e = self.elements[n]
-            ele_map = lexp(e.hamiltonian*e.length)
+            ele_map = lexp(-e.hamiltonian*e.length) # TODO: sign
             ele_map.calcFlow(method='yoshida', t=t, **kwargs)
             return ele_map.flow
+        
         self._uniqueOneTurnMapOps = []
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
             self._uniqueOneTurnMapOps.append(create_elemap(n))
@@ -338,6 +339,15 @@ class beamline:
         new_ordering_indices = []
         ordering_index = 0
         for e in self.elements:
+            if 'n_slices' in kwargs.keys():
+                n_slices_e = kwargs['n_slices']
+            elif 'step' in kwargs.keys():
+                n_slices_e = int(np.ceil(e.length/kwargs['step']))
+                kwargs['n_slices'] = n_slices_e
+            else:
+                raise RuntimeError("For splitting, at least one of the parameters ['step', 'n_slices'] is required.")
+            assert n_slices_e >= 1
+            
             esplit, ordering = e.split(return_scheme_ordering=True, **kwargs)
             
             n_unique_elements = max(ordering) + 1
@@ -368,7 +378,7 @@ class beamline:
             A beamline of hard_edge_element(s) corresponding to the output of hadamard.
         '''
         t = kwargs.get('t', 1)
-        hamiltonians = [e.hamiltonian*e.length*t for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline
+        hamiltonians = [e.hamiltonian*e.length*t for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline; TODO: sign
 
         g1, g2 = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
         new_elements = [hard_edge_element(h, length=1) for h in g1] + [hard_edge_element(g2, length=1)] 

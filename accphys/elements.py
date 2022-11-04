@@ -138,9 +138,9 @@ class hard_edge_element:
         # We also do not use the poly.split routine at this point here, because we want to store all the new lengths in the respective elements and keep the individual hamiltonians unchanged. This may become useful at another step, where only the integration lengths are changed.
         
         ### check parameter slicing input; adjust n_slices for the individual element if 'step' parameter is provided
-        if 'step' in kwargs.keys():
-            n_slices = int(np.ceil(self.length/kwargs['step']))
-        assert n_slices >= 1
+        #if 'step' in kwargs.keys():
+        #    n_slices = int(np.ceil(self.length/kwargs['step']))
+        #assert n_slices >= 1
         ### end of check
         
         ham1 = self.hamiltonian.extract(key_cond=lambda x: x in keys)
