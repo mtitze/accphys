@@ -55,6 +55,7 @@ class beamline:
             requested_ele_indices = [self.ordering[e] for e in key]
         else:
             requested_ele_indices = self.ordering[key]
+            
         if type(requested_ele_indices) != list:
             return self.elements[requested_ele_indices]
         else:
@@ -338,16 +339,8 @@ class beamline:
         new_elements = []
         new_ordering_indices = []
         ordering_index = 0
-        for e in self.elements:
-            if 'n_slices' in kwargs.keys():
-                n_slices_e = kwargs['n_slices']
-            elif 'step' in kwargs.keys():
-                n_slices_e = int(np.ceil(e.length/kwargs['step']))
-                kwargs['n_slices'] = n_slices_e
-            else:
-                raise RuntimeError("For splitting, at least one of the parameters ['step', 'n_slices'] is required.")
-            assert n_slices_e >= 1
-            
+        
+        for e in self.elements:            
             esplit, ordering = e.split(return_scheme_ordering=True, **kwargs)
             
             n_unique_elements = max(ordering) + 1
