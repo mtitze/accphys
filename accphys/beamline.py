@@ -255,7 +255,7 @@ class beamline:
         def create_elemap(n):
             e = self.elements[n]
             ele_map = lexp(-e.hamiltonian*e.length) # TODO: sign
-            ele_map.calcFlow(method='channell', t=t, **kwargs)
+            ele_map.calcFlow(method='channell', **kwargs)
             return ele_map.flow
         
         self._uniqueOneTurnMapOps = []
@@ -314,7 +314,7 @@ class beamline:
         for k in self.ordering:
             outstr += self.elements[k].__str__() + '\n'
         return outstr[:-1]
-    
+
     def split(self, **kwargs):
         '''
         Split beamline elements according to a given splitting scheme.

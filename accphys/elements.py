@@ -27,7 +27,7 @@ class hard_edge_element:
                 self.full_hamiltonian = a
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
-                
+
         if hasattr(self, 'full_hamiltonian'):
             self.setHamiltonian(**kwargs)
         
@@ -105,11 +105,10 @@ class hard_edge_element:
             setattr(result, field, value)
         return result
     
-    def split(self, n_slices: int=1, combine=True, return_scheme_ordering=False, **kwargs):
+    def split(self, return_scheme_ordering=False, **kwargs):
         '''
-        Split the Hamiltonian with respect to a set of keys. 
-        Return a list of polynomials according to the requested number of slices and the splitting.
-        
+        Split the element into several elements of various lengths.
+                
         Parameters
         ----------
         scheme: list, optional
@@ -132,21 +131,45 @@ class hard_edge_element:
             Note that operators belonging to different elements will not be combined (as they do not
             commute in general).
             
+        split_method: callable, optional
+            A custom method to split a given Hamiltonian into several parts. It should return the new
+            Hamiltonians.
+            
         Returns
         -------
         list
             A list of hard_edge_element objects, representing a slicing of the current element.
         '''
+        if 'method' in kwargs.keys():
+            # split the element into several elements according to the provided method.
+            elements, scheme_ordering = self._split_in_custom_elements(**kwargs)
+        elif 'scheme' in kwargs.keys() and 'keys' in kwargs.keys():
+            # split the element alternatingly into two kinds of elements according to the given scheme and the requested keys.
+            elements, scheme_ordering = self._split_in_alternating_elements(**kwargs)
+        else:
+            # split the element uniformly into slices.
+            elements, scheme_ordering = self._split_in_slices(**kwargs)
+            
+        if return_scheme_ordering:
+            return elements, scheme_ordering
+        else:
+            return elements
+        
+    def _split_in_slices(self, n_slices: int=1, **kwargs):
+        if 'step' in kwargs.keys():
+            n_slices = int(np.ceil(self.length/kwargs['step']))
+        assert n_slices >= 1
+        new_elements = [self.copy()]*n_slices
+        for e in new_elements:
+            e.length = self.length/n_slices
+        return new_elements, [0]*n_slices
+    
+    def _split_in_alternating_elements(self, n_slices: int=1, combine=True, **kwargs):
         # N.B. below we have to use the hard_edge_element class explicitly, because if we would have used
         # self.__class__, then derived classes will interpret the argument h differently. Besides, the result
         # of the splitting should not be considered as some derived subclass like a cfm.
 
         # We also do not use the poly.split routine at this point here, because we want to store all the new lengths in the respective elements and keep the individual hamiltonians unchanged. This may become useful at another step, where only the integration lengths are changed.
-        
-        ### input; adjust n_slices for the individual element if 'step' parameter is provided
-        if 'step' in kwargs.keys():
-            n_slices = int(np.ceil(self.length/kwargs['step']))
-        assert n_slices >= 1
         
         if 'scheme' in kwargs.keys() and not 'keys' in kwargs.keys():
             warnings.warn("Splitting with 'scheme' parameter requires 'keys' parameter to be set.")
@@ -159,12 +182,11 @@ class hard_edge_element:
         ham2 = self.hamiltonian.extract(key_cond=lambda x: x not in keys)
         if ham1 == 0 or ham2 == 0:
             # in this case we just return a slicing of the original element
-            new_elements = [hard_edge_element(self.hamiltonian, length=self.length/n_slices)]*n_slices
-            if return_scheme_ordering:
-                return new_elements, [0]*n_slices
-            else:
-                return new_elements
+            return self._split_in_slices(**kwargs)
                     
+        if 'step' in kwargs.keys():
+            n_slices = int(np.ceil(self.length/kwargs['step']))
+        assert n_slices >= 1
         scheme = list(scheme)
         if len(scheme)%2 == 1 and n_slices > 1 and combine:
             # In this case the given scheme of coefficients, belonging to terms of the two operators, 
@@ -178,7 +200,7 @@ class hard_edge_element:
         else:
             # len(scheme) even or n_slices == 1
             new_scheme = scheme*n_slices
-            
+
         new_elements = []
         for k in range(len(new_scheme)):
             f = new_scheme[k]
@@ -186,12 +208,35 @@ class hard_edge_element:
                 ham = ham1
             else:
                 ham = ham2
+            # As stated above, the selection of keys may break properties of derived classes of the hard_edge_element class, we create new hard_edge_elements instead.
             new_elements.append(hard_edge_element(ham, length=self.length/n_slices*f))
 
-        if return_scheme_ordering:
-            return new_elements, get_scheme_ordering(new_scheme)
-        else:
-            return new_elements
+        return new_elements, get_scheme_ordering(new_scheme)
+    
+    def _split_in_custom_elements(self, method, **kwargs):
+        hamiltonians = method(self.hamiltonian, **kwargs)
+        # determine the new scheme and set the new elements
+        assert len(hamiltonians) > 0
+        new_scheme = []
+        new_hamiltonians = []
+        unique_hamiltonians = []
+        unique_scheme_indices = [0]
+        for h in hamiltonians:
+            if h not in unique_hamiltonians:
+                unique_hamiltonians.append(h)
+                scheme_number = unique_scheme_indices[-1] + 1
+                unique_scheme_indices.append(scheme_number)
+            else:
+                h_index = unique_hamiltonians.index(h)
+                scheme_number = unique_scheme_indices[h_index]
+                
+            new_scheme.append(scheme_number)
+            new_hamiltonians.append(h)
+            
+        # !!!! TODO lengths of the new elements may be negative etc. according to the method! Overall,
+        # the length of the sum of the new elements must be equal to the original length.
+        new_elements = [hard_edge_element(h, length=1) for h in new_hamiltonians]
+        return new_elements, new_scheme
         
         
 class phaserot(hard_edge_element):
