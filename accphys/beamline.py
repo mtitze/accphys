@@ -245,7 +245,7 @@ class beamline:
             solver = heyoka(ham, t=t*length, **kwargs)
             self.oneTurnMapOps.append(solver)
             
-    def _calcOneTurnMap_yoshida(self, t=1, **kwargs):
+    def _calcOneTurnMap_channell(self, t=1, **kwargs):
         '''
         Using Yoshida split & Channell's symplectic integrator.
         '''
@@ -255,7 +255,7 @@ class beamline:
         def create_elemap(n):
             e = self.elements[n]
             ele_map = lexp(-e.hamiltonian*e.length) # TODO: sign
-            ele_map.calcFlow(method='yoshida', t=t, **kwargs)
+            ele_map.calcFlow(method='channell', t=t, **kwargs)
             return ele_map.flow
         
         self._uniqueOneTurnMapOps = []
@@ -266,8 +266,8 @@ class beamline:
     def calcOneTurnMap(self, *args, method='bruteforce', **kwargs):
         if method == 'bruteforce':
             self._calcOneTurnMap_bruteforce(*args, **kwargs)
-        elif method == 'yoshida':
-            self._calcOneTurnMap_yoshida(*args, **kwargs)
+        elif method == 'channell':
+            self._calcOneTurnMap_channell(*args, **kwargs)
         elif method == 'heyoka':
             self._calcOneTurnMap_heyoka(**kwargs)
         else:
@@ -321,14 +321,8 @@ class beamline:
         
         Parameters
         ----------
-        step: float, optional
-            If given, split the individual elements according to a given length. This
-            is intended to reduce the number of slices for short elements, and automatically
-            find a proper number of slices for long elements.
-            
-        n_slices: int, optional
-            Split each individual element in n_step slices. If given, then the 'step' parameter
-            will be ignored.
+        **kwargs
+            Keyworded parameters passed to the split routine of each beamline element.
         
         Returns
         -------

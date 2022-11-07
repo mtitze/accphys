@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from njet.functions import cos
 from lieops import create_coords, construct, poly
@@ -104,7 +105,7 @@ class hard_edge_element:
             setattr(result, field, value)
         return result
     
-    def split(self, keys=[], scheme=[0.5, 1, 0.5], n_slices: int=1, combine=True, return_scheme_ordering=False, **kwargs):
+    def split(self, n_slices: int=1, combine=True, return_scheme_ordering=False, **kwargs):
         '''
         Split the Hamiltonian with respect to a set of keys. 
         Return a list of polynomials according to the requested number of slices and the splitting.
@@ -117,10 +118,15 @@ class hard_edge_element:
             exp(h*H) = exp(h*a1*H1) o exp(h*b1*H2) o exp(h*a2*H1) o exp(h*b2*H2) o ...
             
         n_slices: int, optional
-            The number of requested slices, so that
+            The number of requested slices, so that we have
             exp(H) = exp(h*H)**n_slices
-            holds.
-        
+            
+        step: float, optional
+            If given, split the individual elements according to a given length. This
+            is intended to reduce the number of slices for short elements and
+            find a proper number of slices for long elements. If given, the n_slices parameter
+            will be ignored.
+
         combine: boolean, optional
             Sum adjacent operators of the same type (within the same element), if possible.
             Note that operators belonging to different elements will not be combined (as they do not
@@ -137,10 +143,16 @@ class hard_edge_element:
 
         # We also do not use the poly.split routine at this point here, because we want to store all the new lengths in the respective elements and keep the individual hamiltonians unchanged. This may become useful at another step, where only the integration lengths are changed.
         
-        ### check parameter slicing input; adjust n_slices for the individual element if 'step' parameter is provided
+        ### input; adjust n_slices for the individual element if 'step' parameter is provided
         if 'step' in kwargs.keys():
             n_slices = int(np.ceil(self.length/kwargs['step']))
         assert n_slices >= 1
+        
+        if 'scheme' in kwargs.keys() and not 'keys' in kwargs.keys():
+            warnings.warn("Splitting with 'scheme' parameter requires 'keys' parameter to be set.")
+        
+        scheme = kwargs.get('scheme', [0.5, 1, 0.5])
+        keys = kwargs.get('keys', [])
         ### end of check
         
         ham1 = self.hamiltonian.extract(key_cond=lambda x: x in keys)
@@ -152,7 +164,7 @@ class hard_edge_element:
                 return new_elements, [0]*n_slices
             else:
                 return new_elements
-        
+                    
         scheme = list(scheme)
         if len(scheme)%2 == 1 and n_slices > 1 and combine:
             # In this case the given scheme of coefficients, belonging to terms of the two operators, 
