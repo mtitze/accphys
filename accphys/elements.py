@@ -131,7 +131,7 @@ class hard_edge_element:
             Note that operators belonging to different elements will not be combined (as they do not
             commute in general).
             
-        split_method: callable, optional
+        method: callable, optional
             A custom method to split a given Hamiltonian into several parts. It should return the new
             Hamiltonians.
             
@@ -148,26 +148,26 @@ class hard_edge_element:
         
         if 'method' in kwargs.keys():
             # split the element into several elements according to the provided method.
-            elements, scheme_ordering = self._split_in_custom_elements(n_slices=n_slices, **kwargs)
+            elements, scheme_ordering = self._split_into_custom_elements(n_slices=n_slices, **kwargs)
         elif 'scheme' in kwargs.keys() and 'keys' in kwargs.keys():
             # split the element alternatingly into two kinds of elements according to the given scheme and the requested keys.
-            elements, scheme_ordering = self._split_in_alternating_elements(n_slices=n_slices, **kwargs)
+            elements, scheme_ordering = self._split_into_alternating_elements(n_slices=n_slices, **kwargs)
         else:
             # split the element uniformly into slices.
-            elements, scheme_ordering = self._split_in_slices(n_slices=n_slices, **kwargs)
+            elements, scheme_ordering = self._split_into_slices(n_slices=n_slices, **kwargs)
             
         if return_scheme_ordering:
             return elements, scheme_ordering
         else:
             return elements
         
-    def _split_in_slices(self, n_slices: int=1, **kwargs):
+    def _split_into_slices(self, n_slices: int=1, **kwargs):
         new_elements = [self.copy()]*n_slices
         for e in new_elements:
             e.length = self.length/n_slices
         return new_elements, [0]*n_slices
     
-    def _split_in_alternating_elements(self, n_slices: int=1, combine=True, **kwargs):
+    def _split_into_alternating_elements(self, n_slices: int=1, combine=True, **kwargs):
         # N.B. below we have to use the hard_edge_element class explicitly, because if we would have used
         # self.__class__, then derived classes will interpret the argument h differently. Besides, the result
         # of the splitting should not be considered as some derived subclass like a cfm.
@@ -185,7 +185,7 @@ class hard_edge_element:
         ham2 = self.hamiltonian.extract(key_cond=lambda x: x not in keys)
         if ham1 == 0 or ham2 == 0:
             # in this case we just return a slicing of the original element
-            return self._split_in_slices(**kwargs)
+            return self._split_into_slices(**kwargs)
 
         scheme = list(scheme)
         if len(scheme)%2 == 1 and n_slices > 1 and combine:
@@ -213,7 +213,33 @@ class hard_edge_element:
 
         return new_elements, get_scheme_ordering(new_scheme)
     
-    def _split_in_custom_elements(self, method, n_slices: int=1, maintain_length=True, **kwargs):
+    def _split_into_custom_elements(self, method, n_slices: int=1, maintain_length=True, **kwargs):
+        '''
+        Split an element into custom elements according to a user-defined splitting routine.
+        
+        Parameters
+        ----------
+        method: callable
+            A function mapping a poly object to a list of poly objects, defining the splitting.
+            
+        n_slices: integer, optional
+            An optional additional slicing of the element into n_slices. This may be useful because
+            a splitting routine is just an approximation to the original thick element which gets better
+            the more slices are used.
+            
+        maintain_length: boolean, optional
+            If true, then maintain the length of the original element, by multiplying the splitted
+            Hamiltonians by N, where N denotes the number of elements, and the individual lengths by 1/N,
+            respectively.
+            
+        Returns
+        -------
+        list
+            A list of the new elements in form of hard_edge_element objects.
+            
+        list
+            A list denoting the ordering of these elements.
+        '''
         hamiltonians = method(self.hamiltonian, **kwargs)
         # determine the new scheme and set the new elements
         assert len(hamiltonians) > 0

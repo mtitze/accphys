@@ -276,9 +276,11 @@ class beamline:
         self._oneTurnMapMethod = method
 
     def __call__(self, *point):
+        self.out = []
         assert hasattr(self, 'oneTurnMapOps'), 'Call self.calcOneTurnMap first.'
         for m in self.oneTurnMapOps:
             point = m(*point)
+            self.out.append(point)
         return point
     
     def track(self, *xieta, n_reps: int=1, post=lambda x: x, **kwargs):
