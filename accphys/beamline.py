@@ -232,7 +232,8 @@ class beamline:
             
     def _calcOneTurnMap_heyoka(self, t=1, **kwargs):
         '''
-        Using the Heyoka solver one-by-one on each element. This may become very slow for large beamlines.
+        Using the Heyoka solver one-by-one on each element. This may become very slow for large beamlines,
+        but may be useful for the analysis/diagonsis of individual elements.
         
         Further details see
         https://bluescarni.github.io/heyoka/index.html
@@ -326,7 +327,7 @@ class beamline:
         
         Returns
         -------
-        bl: beamline
+        beamline
             A beamline containing the splitted elements.
         '''
         # split the elements of the current beamline

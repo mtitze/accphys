@@ -105,7 +105,7 @@ class hard_edge_element:
             setattr(result, field, value)
         return result
     
-    def split(self, return_scheme_ordering=False, **kwargs):
+    def split(self, return_scheme_ordering=False, n_slices: int=1, **kwargs):
         '''
         Split the element into several elements of various lengths.
                 
@@ -140,15 +140,21 @@ class hard_edge_element:
         list
             A list of hard_edge_element objects, representing a slicing of the current element.
         '''
+        # overwrite n_slices if user provides a 'step' parameter
+        if 'step' in kwargs.keys():
+            n_slices = int(np.ceil(self.length/kwargs['step']))
+            _ = kwargs.pop('step')
+        assert n_slices >= 1
+        
         if 'method' in kwargs.keys():
             # split the element into several elements according to the provided method.
-            elements, scheme_ordering = self._split_in_custom_elements(**kwargs)
+            elements, scheme_ordering = self._split_in_custom_elements(n_slices=n_slices, **kwargs)
         elif 'scheme' in kwargs.keys() and 'keys' in kwargs.keys():
             # split the element alternatingly into two kinds of elements according to the given scheme and the requested keys.
-            elements, scheme_ordering = self._split_in_alternating_elements(**kwargs)
+            elements, scheme_ordering = self._split_in_alternating_elements(n_slices=n_slices, **kwargs)
         else:
             # split the element uniformly into slices.
-            elements, scheme_ordering = self._split_in_slices(**kwargs)
+            elements, scheme_ordering = self._split_in_slices(n_slices=n_slices, **kwargs)
             
         if return_scheme_ordering:
             return elements, scheme_ordering
@@ -156,9 +162,6 @@ class hard_edge_element:
             return elements
         
     def _split_in_slices(self, n_slices: int=1, **kwargs):
-        if 'step' in kwargs.keys():
-            n_slices = int(np.ceil(self.length/kwargs['step']))
-        assert n_slices >= 1
         new_elements = [self.copy()]*n_slices
         for e in new_elements:
             e.length = self.length/n_slices
@@ -183,10 +186,7 @@ class hard_edge_element:
         if ham1 == 0 or ham2 == 0:
             # in this case we just return a slicing of the original element
             return self._split_in_slices(**kwargs)
-                    
-        if 'step' in kwargs.keys():
-            n_slices = int(np.ceil(self.length/kwargs['step']))
-        assert n_slices >= 1
+
         scheme = list(scheme)
         if len(scheme)%2 == 1 and n_slices > 1 and combine:
             # In this case the given scheme of coefficients, belonging to terms of the two operators, 
@@ -213,30 +213,28 @@ class hard_edge_element:
 
         return new_elements, get_scheme_ordering(new_scheme)
     
-    def _split_in_custom_elements(self, method, **kwargs):
+    def _split_in_custom_elements(self, method, n_slices: int=1, **kwargs):
         hamiltonians = method(self.hamiltonian, **kwargs)
         # determine the new scheme and set the new elements
         assert len(hamiltonians) > 0
-        new_scheme = []
-        new_hamiltonians = []
+        split_order = []
         unique_hamiltonians = []
-        unique_scheme_indices = [0]
+        order_number = 0
         for h in hamiltonians:
             if h not in unique_hamiltonians:
                 unique_hamiltonians.append(h)
-                scheme_number = unique_scheme_indices[-1] + 1
-                unique_scheme_indices.append(scheme_number)
+                split_order.append(order_number)
+                order_number += 1
             else:
                 h_index = unique_hamiltonians.index(h)
-                scheme_number = unique_scheme_indices[h_index]
-                
-            new_scheme.append(scheme_number)
-            new_hamiltonians.append(h)
+                split_order.append(split_order[h_index])
+            
+        split_order = split_order*n_slices
+        new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians]
             
         # !!!! TODO lengths of the new elements may be negative etc. according to the method! Overall,
         # the length of the sum of the new elements must be equal to the original length.
-        new_elements = [hard_edge_element(h, length=1) for h in new_hamiltonians]
-        return new_elements, new_scheme
+        return new_elements, split_order
         
         
 class phaserot(hard_edge_element):
