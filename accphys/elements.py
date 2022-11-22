@@ -213,7 +213,7 @@ class hard_edge_element:
 
         return new_elements, get_scheme_ordering(new_scheme)
     
-    def _split_in_custom_elements(self, method, n_slices: int=1, **kwargs):
+    def _split_in_custom_elements(self, method, n_slices: int=1, maintain_length=True, **kwargs):
         hamiltonians = method(self.hamiltonian, **kwargs)
         # determine the new scheme and set the new elements
         assert len(hamiltonians) > 0
@@ -230,10 +230,17 @@ class hard_edge_element:
                 split_order.append(split_order[h_index])
             
         split_order = split_order*n_slices
-        new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians]
+        
+        if maintain_length:
+            # We modify the Hamiltonians by using the total number of used parts, in order 
+            # to maintain the overal length of the element. In principle one can also use negative 
+            # lengths etc. coming from the splitting routine. But this would require that the 
+            # user-given splitting routines provide these lengths somehow in their output formats.
+            # We felt that this leads to more clumsy code and checks, so we opted for this solution here. 
+            new_elements = [hard_edge_element(h*len(hamiltonians), length=self.length/n_slices/len(hamiltonians)) for h in hamiltonians]
+        else:
+            new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians]
             
-        # !!!! TODO lengths of the new elements may be negative etc. according to the method! Overall,
-        # the length of the sum of the new elements must be equal to the original length.
         return new_elements, split_order
         
         
