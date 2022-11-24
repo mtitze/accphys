@@ -105,7 +105,7 @@ class hard_edge_element:
             setattr(result, field, value)
         return result
     
-    def split(self, return_scheme_ordering=False, n_slices: int=1, **kwargs):
+    def split(self, n_slices: int=1, return_scheme_ordering=False, **kwargs):
         '''
         Split the element into several elements of various lengths.
                 
@@ -213,7 +213,7 @@ class hard_edge_element:
 
         return new_elements, get_scheme_ordering(new_scheme)
     
-    def _split_into_custom_elements(self, method, n_slices: int=1, maintain_length=True, **kwargs):
+    def _split_into_custom_elements(self, method, n_slices: int=1, maintain_length=False, **kwargs):
         '''
         Split an element into custom elements according to a user-defined splitting routine.
         

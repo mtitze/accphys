@@ -6,6 +6,7 @@ from lieops import create_coords, combine, lexp, hadamard, poly
 from lieops.solver import heyoka
 
 from .elements import hard_edge_element
+import accphys.elements
 
 class beamline:
     
@@ -34,7 +35,7 @@ class beamline:
             elif isinstance(elements[k], lexp):
                 elements[k] = hard_edge_element(elements[k].argument)
             else:
-                if not isinstance(elements[k], hard_edge_element):
+                if not isinstance(elements[k], accphys.elements.hard_edge_element):
                     raise TypeError(f'Type of {k}-th entry {type(elements[k])} not recognized.')
         assert all([hasattr(e, 'hamiltonian') for e in elements])
         dim0 = elements[0].hamiltonian.dim
