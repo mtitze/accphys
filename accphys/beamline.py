@@ -319,7 +319,7 @@ class beamline:
             outstr += self.elements[k].__str__() + '\n'
         return outstr[:-1]
 
-    def split(self, **kwargs):
+    def split(self, *args, **kwargs):
         '''
         Split beamline elements according to a given splitting scheme.
         
@@ -339,7 +339,7 @@ class beamline:
         ordering_index = 0
         
         for e in self.elements:            
-            esplit, ordering = e.split(return_scheme_ordering=True, **kwargs)
+            esplit, ordering = e.split(*args, return_scheme_ordering=True, **kwargs)
             
             n_unique_elements = max(ordering) + 1
             unique_element_indices = list(range(n_unique_elements))

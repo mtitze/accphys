@@ -253,7 +253,7 @@ class hard_edge_element:
                 order_number += 1
             else:
                 h_index = unique_hamiltonians.index(h)
-                split_order.append(split_order[h_index])
+                split_order.append(h_index)
             
         split_order = split_order*n_slices
         
@@ -263,7 +263,7 @@ class hard_edge_element:
             # lengths etc. coming from the splitting routine. But this would require that the 
             # user-given splitting routines provide these lengths somehow in their output formats.
             # We felt that this leads to more clumsy code and checks, so we opted for this solution here. 
-            new_elements = [hard_edge_element(h*len(hamiltonians), length=self.length/n_slices/len(hamiltonians)) for h in hamiltonians]
+            new_elements = [hard_edge_element(h*len(hamiltonians), length=self.length/len(hamiltonians)/n_slices) for h in hamiltonians]
         else:
             new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians]
             
