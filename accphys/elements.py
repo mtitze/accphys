@@ -31,7 +31,7 @@ class hard_edge_element:
         if hasattr(self, 'full_hamiltonian'):
             self.setHamiltonian(**kwargs)
         
-    def calcHamiltonian(self, beta0, sqrtexp: int=2, **kwargs):
+    def calcHamiltonian(self, beta0, sqrtexp: int=2, tol=5e-8, **kwargs):
         '''
         Compute the Hamiltonian of a drift.
         For the underlying coordinate system and further details see Refs. [1, 2] below.
@@ -41,6 +41,9 @@ class hard_edge_element:
         ----------
         sqrtexp or power: int, optional
             Power up to which the square root of the drift should be expanded.
+            
+        tol: float, optional
+            A tolerance below which we drop components in the Hamiltonian.
         '''
         assert 0 < beta0 and beta0 < 1
         # Compute the CFM drift part
@@ -48,9 +51,9 @@ class hard_edge_element:
         one_hateta2 = lambda ps: ((1 + ps*beta0**2)**2 - 1 + beta0**2)/beta0**2 # Eqs. (15c) and (17) in Ref. [1]
         sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
         _ = kwargs.pop('power', None) # n.b. this will not remove the key in any calling instance
-        drift_s = construct(sqrt, px, py, psigma, power=sqrtexp, **kwargs) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power.
+        drift_s = construct(sqrt, px, py, psigma, power=sqrtexp, **kwargs).above(tol) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power.
         hamiltonian = psigma - drift_s
-        hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None)
+        hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None).above(tol)
         self.full_hamiltonian = hamiltonian
         self._prop = {}
         self._prop['beta0'] = beta0
@@ -379,7 +382,7 @@ class cfm(hard_edge_element):
             g[(k + 1, k + 1)] = g[(k + 1, 0)].conjugate()
         return g
     
-    def calcHamiltonian(self, **kwargs):
+    def calcHamiltonian(self, tol=5e-8, **kwargs):
         '''
         Compute the Hamiltonian of the cfm (without electric fields).
         For the underlying coordinate system and further details see Refs. [1, 2] below.
@@ -418,7 +421,7 @@ class cfm(hard_edge_element):
             So that H = H_drift + H_field.
         '''
         # compute the Hamiltonian of the drift
-        hard_edge_element.calcHamiltonian(self, **kwargs)
+        hard_edge_element.calcHamiltonian(self, tol=tol, **kwargs)
         x, y, sigma, px, py, psigma = self._prop['coords']
         # Compute the CFM vector potential
         # G = (1 + Kx*x + Ky*y)*A_t near Eq. (2).
@@ -449,6 +452,11 @@ class cfm(hard_edge_element):
         H_full = H_full.pop((0, 0, 0, 0, 0, 0), None)
         H_drift = H_drift.pop((0, 0, 0, 0, 0, 0), None)
         H_field = H_field.pop((0, 0, 0, 0, 0, 0), None)
+        
+        # drop any terms below a threshold
+        H_full = H_full.above(tol)
+        H_drift = H_drift.above(tol)
+        H_field = H_field.above(tol)
 
         out = {}
         out['kx'] = kx
