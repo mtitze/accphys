@@ -43,7 +43,7 @@ class hard_edge_element:
             Power up to which the square root of the drift should be expanded.
             
         tol: float, optional
-            A tolerance below which we drop components in the Hamiltonian.
+            Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
         assert 0 < beta0 and beta0 < 1
         # Compute the CFM drift part
@@ -80,7 +80,7 @@ class hard_edge_element:
             If there are no arguments given, then the default Hamiltonian will be restored.
             
         tol: float, optional
-            If > 0, then drop entries whose absolute value are smaller than this value.
+            Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
         # consistency checks
         new_dim = len(projection)
@@ -294,7 +294,7 @@ class phaserot(hard_edge_element):
         self.full_hamiltonian = sum([-tunes[k]*xieta[k]*xieta[k + dim] for k in range(dim)])
         
 class cfm(hard_edge_element):
-    def __init__(self, components=[0], tilt=0, *args, **kwargs):
+    def __init__(self, components=[0], tilt=0, _addzero=True, *args, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -311,15 +311,34 @@ class cfm(hard_edge_element):
             If K_x = 0 this transverse axis smears out a cone. The ideal trajectory is hereby given by a horizontal
             cut of the cone with a plane.
             
-            Note that additional zeros in the list will cause the routine to compute more orders of the CFM.
+            Attention:
+            1) 
+            Additional zeros in the list will cause the routine to compute more orders of the CFM.
+            This becomes important if the cfm contains a non-zero dipole component and some other multipole components.
+            
+            2)
+            In the case of a single entry in the cfm components, an additional zero will be added internally so that
+            the resulting object describes a physical dipole. The reason is that (internally) the order of the G-function
+            in Ref. [2] has to be at least 2 or higher (see the topmost Eq. on p.53 in Ref. [2]). To suppress this behaviour,
+            the switch _addzero can be set to False.
+            
+        _addzero: boolean, optional
+            Suppress the addition of a zero to the list of components in the case that len(components) = 1.
             
         tilt: float, optional
             The tilt between the dipole component and the higher-order magnet components of the cfm.
             
         **kwargs
             Optional arguments passed to self.calcHamiltonian and self.setHamiltonian.
+            
+        Reference(s)
+        ------------
+            [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+            [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
         '''
         assert len(components) > 0
+        if len(components) == 1 and _addzero:
+            components = [components[0], 0] # see explanation in the docs above
         self.components = components
         self.tilt = tilt
         hard_edge_element.__init__(self, *args, **kwargs)
@@ -390,6 +409,9 @@ class cfm(hard_edge_element):
 
         Parameters
         ----------
+        tol: float, optional
+            Threshold below which terms in the Hamiltonian are considered to be zero.
+        
         **kwargs
             Optional keyword arguments passed to 'construct' routine.
 
@@ -448,15 +470,10 @@ class cfm(hard_edge_element):
         H_field = - drift_s*(x*kx + y*ky) - G
         H_full = H_drift + H_field
         
-        # remove any remaining constants; they do not affect the equations of motion.
-        H_full = H_full.pop((0, 0, 0, 0, 0, 0), None)
-        H_drift = H_drift.pop((0, 0, 0, 0, 0, 0), None)
-        H_field = H_field.pop((0, 0, 0, 0, 0, 0), None)
-        
-        # drop any terms below a threshold
-        H_full = H_full.above(tol)
-        H_drift = H_drift.above(tol)
-        H_field = H_field.above(tol)
+        # remove any remaining constants; they do not affect the equations of motion. Also drop all terms below the given threshold.
+        H_full = H_full.pop((0, 0, 0, 0, 0, 0), None).above(tol)
+        H_drift = H_drift.pop((0, 0, 0, 0, 0, 0), None).above(tol)
+        H_field = H_field.pop((0, 0, 0, 0, 0, 0), None).above(tol)
 
         out = {}
         out['kx'] = kx
@@ -518,30 +535,28 @@ class cfm(hard_edge_element):
         return xf, yf, sigmaf, pxf, pyf, psigmaf
 
 class multipole(cfm):
-    def __init__(self, str=0, n: int=0, *args, **kwargs):
+    def __init__(self, fs=0, n: int=0, *args, **kwargs):
         '''
         Model of a multipole with exactly 2*n pole faces.
         
         Parameters
         ----------
+        fs: float or complex, optional
+            The field strength of the multipole. The real and imaginary part of 'fs' are understood to define the normal and skew components.
+            These components are given with respect to the x-axis (tilt 0) and an axis which is rotated relative to x by an angle of pi/2/n.
+        
         n: int, optional
             Defines the number 2*n of pole faces.
-
-         
-        expansion: int, optional
-            An additional parameter (>= n) by which one can control the number of terms in the expansion of the field.
         '''
         if n == 0: # drift case
             components = [0]
         else: # n > 0
             components = [0]*max([2, n]) # max([2, n]) because if n = 1 (the dipole case) then, since (1 + Kx*x + Ky*y)*(By + 1j*Bx) = - \partial_x G + 1j*\partial_y G (see p. 53 top in Ref. [2]), G must be of order <= 2.
-            # The real and imaginary part of 'str' are understood to define the normal and skew components of the sextupole.
-            # These components are given with respect to the x-axis (tilt 0) and an axis which is rotated relative to x by an angle of pi/2/n.
             #
             # Equivalently, these components are given by the real and imaginary parts of c_n with B_y + i B_x = c_n*(x + iy)**(n - 1), see e.g.
             # Eq. (1.8) in Ref. [2], using y=0 here. The c_n are just the components of the cfm.
             # Therefore:
-            components[n - 1] = str
+            components[n - 1] = fs
         cfm.__init__(self, components=components, *args, **kwargs)
         
 class drift(multipole):
@@ -567,7 +582,7 @@ class octupole(multipole):
 class rfc(hard_edge_element):
     def __init__(self, voltage, phase, frequency, beta0, *args, **kwargs):
         '''
-        A generic RF cavity based on the simplest of all models.
+        A generic RF cavity.
                 
         Reference(s):
         [1] A. Wolski: Beam Dynamics in High Energy Particle Accelerators.
@@ -579,17 +594,25 @@ class rfc(hard_edge_element):
         self.beta0 = beta0
         hard_edge_element.__init__(self, *args, beta0=beta0, **kwargs)
         
-    def calcHamiltonian(self, p=10, **kwargs):
+    def calcHamiltonian(self, p=10, tol=5e-8, **kwargs):
         '''
         The Hamiltonian of a simplified RF cavity., see Ref. [1], Eq. (3.138) p. 112.
+        
+        Parameters
+        ----------
+        p: int, optional
+            The total order up to which the RF potential should be expanded in terms of polynomials.
+        
+        tol: float, optional
+            Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
-        hard_edge_element.calcHamiltonian(self, **kwargs)
+        hard_edge_element.calcHamiltonian(self, tol=tol, **kwargs)
         x, y, sigma, px, py, psigma = self._prop['coords']
         #k = 2*np.pi*self.frequency/constants.speed_of_light # 2.40483/radius # Eq. (3.132) in [1] and earlier: omega = k/c
         #hamiltonian = construct(cos, sigma/beta0*-k + self.phase, **kwargs)*self.voltage
         rf_potential = construct(cos, -sigma/self.beta0*self.frequency + self.phase, power=p, **kwargs)*self.voltage/float(np.pi)
         hamiltonian = self._prop['full'] - rf_potential
-        self.full_hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None) # remove any constant term
+        self.full_hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None).above(tol) # remove any constant term
         
         
         

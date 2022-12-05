@@ -78,7 +78,7 @@ def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, 
     return hdf.sort_index().reset_index(drop=True)
 
 
-def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='L', **kwargs):
+def to_beamline(hdf, beta0, component_labels, component_indices, position_label='s', length_label='L', **kwargs):
     '''
     Construct a beamline from a given lattice.
     
@@ -87,6 +87,15 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
     hdf: Pandas dataframe
         A Pandas dataframe object containing the position, lengths and field strengths of the individual
         elements in the beamline.
+        
+    beta0: float
+        The relativistic beta0 to be used in defining the Hamiltonians of the beamline elements.
+        
+    component_labels
+        A list of floats, declaring the names of the columns in which to find the combined-function components.
+        
+    component_indices
+        A list of integers, where the k-th entry denotes the index of the respective component.
         
     position_label: str, optional
         Label denoting the position of the individual elements within the dataframe.
@@ -103,6 +112,7 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
         A beamline object representing the sequence of elements.
     '''
     assert len(component_labels) > 0
+    assert len(component_labels) == len(component_indices)
     # Preparation; ensure that no empty space exists between elements (they will be filled with drifts if necessary):
     hdf = prepare_df(hdf, position_label=position_label, length_label=length_label, **kwargs)
             
@@ -116,11 +126,16 @@ def to_beamline(hdf, beta0, component_labels, position_label='s', length_label='
     # build the elements:
     elements = []
     group_index = 0
+    n_components = max(component_indices) + 1 # + 1 because of the 0th-component
     for n in tqdm(range(len(unique_elements)), disable=kwargs.get('disable_tqdm', False)):
         row = unique_elements.iloc[n]
-        components = [row[c] for c in component_labels]
-        length = row[length_label]
-        assert group_index == row[group_index_label] # verify that the position in the element list corresponds with the group index given by ngroup.
+        components = [0]*n_components
+        for j in range(len(component_indices)):
+            index = component_indices[j]
+            label = component_labels[j]
+            components[index] = row.get(label, 0)
+        length = row.get(length_label, 0)
+        assert group_index == row[group_index_label] # verify that the position in the element list corresponds to the group index given by ngroup.
         elements.append(cfm(beta0=beta0, components=components, length=length, **kwargs))
         group_index += 1
         
@@ -161,12 +176,13 @@ def madx2dataframe(filename, **kwargs):
     length_label='L'
     bend_kx_label = 'K0'
     angle_label = 'ANGLE'
-    max_seek_order = 13
+    max_seek_order = 13 # maximal order of multipoles to be considered
     madx_default_position = 0.5 # MAD-X tends to denote the position of the elements in the center
 
-    component_labels = [f'K{j}' for j in range(1, max_seek_order) if f'K{j}' in raw_df.columns]
+    component_indices = [j for j in range(max_seek_order) if f'K{j}' in raw_df.columns]
+    component_labels = [f'K{j}' for j in component_indices]
     if bend_kx_label not in raw_df.columns and angle_label in raw_df.columns:
-        # add kx
+        # add kx (and K0 label) to the dataframe, computed from the bend angles
         angles = raw_df[angle_label].values
         lengths = raw_df[length_label].values 
         valid_indices = np.logical_and((~np.isnan(angles)), lengths > 0)
@@ -174,6 +190,7 @@ def madx2dataframe(filename, **kwargs):
         kx[valid_indices] = angles[valid_indices]/lengths[valid_indices] # r*phi = L; kx = 1/r
         raw_df[bend_kx_label] = kx
         component_labels = [bend_kx_label] + component_labels
+        component_indices = [0] + component_indices
 
     # drop elements with zero length and uneccesary columns;
     # N.B. E1 and E2 denote rotation angles of the pole-faces. If they are non-zero,
@@ -196,8 +213,9 @@ def madx2dataframe(filename, **kwargs):
     if len(component_labels) == 0: # special case: Only pure drifts exist
         raw_df[bend_kx_label] = [0]*len(raw_df)
         component_labels = [bend_kx_label]
+        component_indices = [0]
         
-    to_beamline_inp = {'component_labels': component_labels, 'position_label': position_label,
+    to_beamline_inp = {'component_labels': component_labels, 'component_indices': component_indices, 'position_label': position_label,
                     'length_label': length_label, 'position': kwargs.get('position', madx_default_position)}
     
     return raw_df, to_beamline_inp
