@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 
 from njet.functions import cos
-from lieops import create_coords, construct, poly
+from lieops import create_coords, construct, poly, lexp
 from lieops.solver.splitting import get_scheme_ordering
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
@@ -25,6 +25,8 @@ class hard_edge_element:
             a = args[0]
             if isinstance(a, poly):
                 self.full_hamiltonian = a
+            elif isinstance(a, lexp):
+                self.full_hamiltonian = a.argument
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
@@ -255,8 +257,7 @@ class hard_edge_element:
                 split_order.append(order_number)
                 order_number += 1
             else:
-                h_index = unique_hamiltonians.index(h)
-                split_order.append(h_index)
+                split_order.append(unique_hamiltonians.index(h))
             
         split_order = split_order*n_slices
         

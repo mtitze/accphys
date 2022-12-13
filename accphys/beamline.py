@@ -2,7 +2,8 @@ import numpy as np
 from tqdm import tqdm
 import warnings
 
-from lieops import create_coords, combine, lexp, hadamard, poly
+from lieops import create_coords, combine, lexp, poly
+from lieops import hadamard2d as hadamard
 from lieops.solver import heyoka
 
 from .elements import hard_edge_element
@@ -367,6 +368,8 @@ class beamline:
         t = kwargs.get('t', 1)
         hamiltonians = [e.hamiltonian*e.length*t for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline; TODO: sign
 
-        g1, g2 = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
-        new_elements = [hard_edge_element(h, length=1) for h in g1] + [hard_edge_element(g2, length=1)] 
-        return self.__class__(*new_elements[::-1])
+        g1, g2, g2_all = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
+        new_elements = [hard_edge_element(h1, length=1) for h1 in g1] + [hard_edge_element(h2, length=1) for h2 in g2] 
+        out = self.__class__(*new_elements[::-1])
+        out._hadamard_trail = g2_all[::-1]
+        return out
