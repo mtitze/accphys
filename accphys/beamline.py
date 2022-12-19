@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 import warnings
 
-from lieops import create_coords, combine, lexp, poly
+from lieops import create_coords, magnus, lexp, poly
 from lieops import hadamard2d as hadamard
 from lieops.solver import heyoka
 
@@ -160,11 +160,11 @@ class beamline:
             up to which the magnus series will be exact. 
         
         **kwargs
-            Optional keyword arguments passed to lieops.ops.lie.combine routine
+            Optional keyword arguments passed to lieops.core.combine.magnus routine
         '''            
         hamiltonians = [e.hamiltonian*bch_sign for e in self]
         lengths = np.array(self.lengths())
-        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = combine(*hamiltonians, power=power, 
+        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = magnus(*hamiltonians, power=power, 
                                                                                      lengths=lengths, **kwargs)
         return self.__class__(hard_edge_element(sum(self._magnus_series.values())*bch_sign, length=1))
     
@@ -253,7 +253,7 @@ class beamline:
         # (these elements are stored in self.elements).
         def create_elemap(n):
             e = self.elements[n]
-            ele_map = lexp(-e.hamiltonian*e.length) # TODO: sign
+            ele_map = lexp(-e.hamiltonian*e.length) # TODO: sign; note that any sign in **kwargs will be recognized in ele_map.calcFlow in the next line.
             ele_map.calcFlow(method='channell', **kwargs)
             return ele_map.flow
         
