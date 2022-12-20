@@ -2,6 +2,8 @@ import numpy as np
 from tqdm import tqdm
 import warnings
 
+from njet import derive
+
 from lieops import create_coords, magnus, lexp, poly
 from lieops import hadamard2d as hadamard
 from lieops.solver import heyoka
@@ -373,3 +375,24 @@ class beamline:
         out = self.__class__(*new_elements[::-1])
         out._hadamard_trail = g2_all[::-1]
         return out
+    
+    def tpsa(self, *position, order: int):
+        '''
+        Pass n-jets through the flow functions of the individual elements.
+        
+        Parameters
+        ----------
+        *position: float or array, optional
+            An optional point of reference. By default the position will be the origin.
+            
+        order: int
+            The number of derivatives we want to take into account.
+        '''
+        dim = self.get_dim()
+        n_args = dim*2
+        self._tpsa = derive(self, n_args=n_args, order=order)
+        if len(position) == 0:
+            position = (0,)*n_args
+        expansion = self._tpsa(*position, mult_prm=True, mult_drv=False) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
+        xietaf = [poly(values=e, dim=dim, max_power=self.elements[0].hamiltonian.max_power) for e in expansion]
+        return xietaf
