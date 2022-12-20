@@ -8,6 +8,8 @@ from lieops import create_coords, magnus, lexp, poly
 from lieops import hadamard2d as hadamard
 from lieops.solver import heyoka
 
+from lieops.core import dragtfinn
+
 from .elements import hard_edge_element
 
 class beamline:
@@ -394,5 +396,15 @@ class beamline:
         if len(position) == 0:
             position = (0,)*n_args
         expansion = self._tpsa(*position, mult_prm=True, mult_drv=False) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
-        xietaf = [poly(values=e, dim=dim, max_power=self.elements[0].hamiltonian.max_power) for e in expansion]
+        max_power = max([e.hamiltonian.max_power for e in self.elements])
+        xietaf = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
         return xietaf
+
+    def dragtfinn(self, *args, order: int, **kwargs):
+        '''
+        Pass n-jets through the lattice at a point of interest. Then return the symplectic approximation (Dragt/Finn factorization)
+        of the map near that point.
+        '''
+        fk = dragtfinn(*self.tpsa(*args, order=order), **kwargs)
+        fk = [-f for f in fk] # the minus sign is used here, because the beamline flow calculation is using t=-1 by default in calculating the flow. TODO: This should be checked for all routines.
+        return self.__class__(*fk) # no reverse here, because internally the flow is calculated, which is again given by pull-back (...)
