@@ -4,6 +4,8 @@ import warnings
 from njet.functions import cos
 from lieops import create_coords, construct, poly, lexp
 from lieops.solver.splitting import get_scheme_ordering
+from lieops.solver import heyoka
+
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -272,6 +274,64 @@ class hard_edge_element:
             new_elements = [hard_edge_element(h, length=self.length/n_slices) for h in hamiltonians]
             
         return new_elements, split_order
+    
+    def calcOneTurnMap(self, method, **kwargs):
+        try:
+            calc = getattr(self, f"_calcOneTurnMap_{method}")
+        except:
+            raise RuntimeError(f"Method '{method}' not recognized.")
+        self._oneTurnMapMethod = method
+        self.oneTurnMap = calc(**kwargs)
+        return self.oneTurnMap
+    
+    def _calcOneTurnMap_bruteforce(self, half=False, t=-1, tol=0, **kwargs):
+        '''
+        Integrate the equations of motion by 'brute-force', namely by calculating the
+        flow(s) exp(-:H:) applied to coordinate functions, up to specific orders.
+        
+        Parameters
+        ----------
+        half: boolean, optional
+            If specified, only compute the result for the xi-polynomials.
+            
+        tol: float, optional
+            If > 0, then drop components larger than this value from the map.
+            
+        **kwargs 
+            Optional parameters passed to create_coords routine (e.g. any possible max_power)
+        '''
+        dim0 = self.hamiltonian.dim
+        xiv = create_coords(dim0, **kwargs)
+        if half:
+            xiv = xiv[:dim0]
+            
+        final_components = lexp(self.hamiltonian*self.length, **kwargs)(*xiv, t=t) # TODO: sign
+        if tol > 0:
+            final_components = [c.above(tol) for c in final_components]
+        one_turn_map = lambda *z: [c(*z) for c in final_components] # z: point of interest
+        return one_turn_map
+    
+    def _calcOneTurnMap_heyoka(self, t=-1, **kwargs):
+        '''
+        Use the Heyoka solver. This may become very slow for large beamlines,
+        but may be useful for the analysis/diagonsis of individual elements.
+        
+        Further details see
+        https://bluescarni.github.io/heyoka/index.html
+        '''
+        return heyoka(self.hamiltonian, t=t*self.length, **kwargs)
+
+    def _calcOneTurnMap_channell(self, t=-1, **kwargs):
+        '''
+        Using Yoshida split & Channell's symplectic integrator.
+        '''
+        ele_map = lexp(self.hamiltonian*self.length)
+        ele_map.calcFlow(method='channell', t=t, **kwargs)
+        return ele_map.flow
+    
+    def __call__(self, *args, **kwargs):
+        assert hasattr(self, 'oneTurnMap'), 'call self.calcOneTurnMap first.'
+        return self.oneTurnMap(*args, **kwargs)
         
         
 class phaserot(hard_edge_element):

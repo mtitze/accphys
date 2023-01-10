@@ -6,8 +6,6 @@ from njet import derive
 
 from lieops import create_coords, magnus, lexp, poly
 from lieops import hadamard2d as hadamard
-from lieops.solver import heyoka
-
 from lieops.core import dragtfinn
 
 from .elements import hard_edge_element
@@ -200,88 +198,29 @@ class beamline:
         
         return uniques
         
-    def _calcOneTurnMap_bruteforce(self, half=False, t=-1, *args, **kwargs):
+    def calcOneTurnMap(self, method='bruteforce', **kwargs):
         '''
         Integrate the equations of motion by 'brute-force', namely by calculating the
         flow(s) exp(-:H:) applied to coordinate functions, up to specific orders.
         
         Parameters
         ----------
-        half: boolean, optional
-            If specified, only compute the result for the xi-polynomials.
+        method: str, optional
+            The method which should be used for the elements in the beamline.
             
         **kwargs 
-            Optional parameters passed to create_coords routine (e.g. any possible max_power)
+            Optional parameters passed to
+            accphys.elements.hard_edge_element.calcOneTurnMap 
+            routine (e.g. any possible max_power)
         '''
-        dim0 = self.get_dim()
-        xiv = create_coords(dim0, **kwargs)
-        if half:
-            xiv = xiv[:dim0]
-            
-        # create_elemap necessary to construct functions in the loop below
-        # This function will be used to compute the flow for each of the unique elements in the lattice
-        # (these elements are stored in self.elements).
-        def create_elemap(n, **kwargs2):
-            e = self.elements[n]
-            final_components = lexp(e.hamiltonian*e.length, **kwargs)(*xiv, t=t) # TODO: sign
-            if 'tol' in kwargs2.keys():
-                final_components = [c.above(kwargs2['tol']) for c in final_components]
-            return lambda *z: [c(*z) for c in final_components] # z: point of interest
-        self._uniqueOneTurnMapOps = []
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
-            self._uniqueOneTurnMapOps.append(create_elemap(n, **kwargs))
-        self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
-            
-    def _calcOneTurnMap_heyoka(self, t=1, **kwargs):
-        '''
-        Using the Heyoka solver one-by-one on each element. This may become very slow for large beamlines,
-        but may be useful for the analysis/diagonsis of individual elements.
+            self[n].calcOneTurnMap(method=method, **kwargs)
         
-        Further details see
-        https://bluescarni.github.io/heyoka/index.html
-        '''
-        self.oneTurnMapOps = []
-        for k in tqdm(range(len(self)), disable=kwargs.get('disable_tqdm', False)):
-            element_index = self.ordering[k]
-            ham = self.elements[element_index].hamiltonian
-            length = self.elements[element_index].length
-            solver = heyoka(ham, t=t*length, **kwargs)
-            self.oneTurnMapOps.append(solver)
-            
-    def _calcOneTurnMap_channell(self, t=1, **kwargs):
-        '''
-        Using Yoshida split & Channell's symplectic integrator.
-        '''
-        # create_elemap necessary to construct functions in the loop below
-        # This function will be used to compute the flow for each of the unique elements in the lattice
-        # (these elements are stored in self.elements).
-        def create_elemap(n):
-            e = self.elements[n]
-            ele_map = lexp(-e.hamiltonian*e.length) # TODO: sign; note that any sign in **kwargs will be recognized in ele_map.calcFlow in the next line.
-            ele_map.calcFlow(method='channell', **kwargs)
-            return ele_map.flow
-        
-        self._uniqueOneTurnMapOps = []
-        for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
-            self._uniqueOneTurnMapOps.append(create_elemap(n))
-        self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
-        
-    def calcOneTurnMap(self, *args, method='bruteforce', **kwargs):
-        self._oneTurnMapMethod = method
-        if method == 'bruteforce':
-            self._calcOneTurnMap_bruteforce(*args, **kwargs)
-        elif method == 'channell':
-            self._calcOneTurnMap_channell(*args, **kwargs)
-        elif method == 'heyoka':
-            self._calcOneTurnMap_heyoka(**kwargs)
-        else:
-            raise RuntimeError(f'Method {method} not recognized.')
-
     def __call__(self, *point):
         self.out = []
-        assert hasattr(self, 'oneTurnMapOps'), 'Call self.calcOneTurnMap first.'
-        for m in self.oneTurnMapOps:
-            point = m(*point)
+        assert all([hasattr(e, 'oneTurnMap') for e in self]), 'Some elements require calculation of their one-turn map.'
+        for e in self:
+            point = e(*point)
             self.out.append(point)
         return point
     
