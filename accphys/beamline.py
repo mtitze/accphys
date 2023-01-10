@@ -153,7 +153,7 @@ class beamline:
         for e in self.elements:
             e.setHamiltonian(*args, **kwargs)
             
-    def magnus(self, power=1, bch_sign=-1, **kwargs):
+    def magnus(self, order=1, bch_sign=-1, **kwargs):
         '''
         Combine the individual Hamiltonians by means of Magnus series.
         
@@ -168,7 +168,7 @@ class beamline:
         '''            
         hamiltonians = [e.hamiltonian*bch_sign for e in self]
         lengths = np.array(self.lengths())
-        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = magnus(*hamiltonians, power=power, 
+        self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = magnus(*hamiltonians, order=order, 
                                                                                      lengths=lengths, **kwargs)
         return self.__class__(hard_edge_element(sum(self._magnus_series.values())*bch_sign, length=1))
     
@@ -267,6 +267,7 @@ class beamline:
         self.oneTurnMapOps = [self._uniqueOneTurnMapOps[k] for k in self.ordering]
         
     def calcOneTurnMap(self, *args, method='bruteforce', **kwargs):
+        self._oneTurnMapMethod = method
         if method == 'bruteforce':
             self._calcOneTurnMap_bruteforce(*args, **kwargs)
         elif method == 'channell':
@@ -275,7 +276,6 @@ class beamline:
             self._calcOneTurnMap_heyoka(**kwargs)
         else:
             raise RuntimeError(f'Method {method} not recognized.')
-        self._oneTurnMapMethod = method
 
     def __call__(self, *point):
         self.out = []
@@ -285,7 +285,8 @@ class beamline:
             self.out.append(point)
         return point
     
-    def track(self, *xieta, n_reps: int=1, post=lambda x: x, **kwargs):
+    def track(self, *xieta, n_reps: int=1, post=lambda *x: x, real=False,
+              output_format='default', **kwargs):
         '''
         Perform tracking for a given number of repetitions.
 
@@ -297,22 +298,70 @@ class beamline:
         xieta: The start vector (xi, eta).
 
         post: callable, optional
-            An optional function to be applied after bl. 
-            Example: We want to compute (A o bl o B)**n at xi0, where A = B**(-1) are maps to normal form.
-            Then we need to record for Y0 := B(xi0) the values A(bl(Y0)), A(bl**2(Y0)) etc. Here A = post must
-            be inserted.
+            An optional function to be applied after each tracking.
+            Example: 
+            Let 'bl' denote the map of the current beamline. 
+            We want to compute (A o bl o B)**n at xi0, where A = B**(-1) are maps to normal form.
+            Then we need to record for Y0 := B(xi0) the values A(bl(Y0)), A(bl**2(Y0)) etc. 
+            A = post.
+            
+        real: boolean, optional
+            If True, assume the input is given in terms of standard q-p coordinates.
+            
+        output_format: str, optional
+            Determine the format of the output as follows:
+            default/list: A single object will be returned, which corresponds to a list of data, 
+                          where the k-th element corresponds to the output of turn k (default).
+            transposed/coords: dim objects will be returned (one for each coordinate), each containing 
+                               the computed points for the requested turns.
 
         Returns
         -------
-        list
-            A list so that the k'th entry corresponds to the k-th component for the requested turns.
-        '''
+        list or series of lists
+            Output according to 'output_format'.
+        '''        
+        # Some input consistency checks
+        dim2 = len(xieta)
+        assert dim2%2 == 0
+        assert dim2//2 == self.get_dim()
+        output_formats = ['default', 'list', 'coords', 'transposed'] # supported output formats
+        assert output_format in output_formats, f"Output format '{output_format}' not recognized."
+    
+        # Prepare input and post-function in case of 'real-valued' data
+        if real:
+            sqrt2 = float(np.sqrt(2))
+            dim = dim2//2
+            q0 = xieta[:dim]
+            p0 = xieta[dim:]
+            xi0 = [(q0[k] + p0[k]*1j)/sqrt2 for k in range(dim)]
+            eta0 = [(q0[k] - p0[k]*1j)/sqrt2 for k in range(dim)]
+            xieta = xi0 + eta0
+
+            def post_real(*z):
+                '''
+                Map complex xi/eta-coordinates to real q/p-coordinates,
+                then apply the user-given 'post'-map.
+                '''
+                xif = z[:dim]
+                etaf = z[dim:]
+                qfpf = [(xif[k] + etaf[k])/sqrt2 for k in range(dim)] + \
+                       [(xif[k] - etaf[k])/sqrt2/1j for k in range(dim)]
+                return post(*qfpf)
+                
+            post_used = post_real
+        else:
+            post_used = post
+            
         point = xieta
         points = []
         for k in tqdm(range(n_reps), disable=kwargs.get('disable_tqdm', False)):
             point = self(*point)
-            points.append(post(point))
-        return points
+            points.append(post_used(*point))
+            
+        if output_format in ['default', 'list']:
+            return points
+        elif output_format in ['coords', 'transposed']:
+            return (*[[points[k][j] for k in range(n_reps)] for j in range(dim2)],)
     
     def __str__(self):
         outstr = ''
@@ -398,6 +447,8 @@ class beamline:
         expansion = self._tpsa(*position, mult_prm=True, mult_drv=False) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
         max_power = max([e.hamiltonian.max_power for e in self.elements])
         xietaf = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
+        self._tpsa_position = position
+        self._tpsa_xietaf = xietaf
         return xietaf
 
     def dragtfinn(self, *args, order: int, **kwargs):
