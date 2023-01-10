@@ -198,7 +198,7 @@ class beamline:
         
         return uniques
         
-    def calcOneTurnMap(self, method='bruteforce', **kwargs):
+    def calcOneTurnMap(self, **kwargs):
         '''
         Integrate the equations of motion by 'brute-force', namely by calculating the
         flow(s) exp(-:H:) applied to coordinate functions, up to specific orders.
@@ -214,11 +214,11 @@ class beamline:
             routine (e.g. any possible max_power)
         '''
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
-            self[n].calcOneTurnMap(method=method, **kwargs)
+            self.elements[n].calcOneTurnMap(**kwargs)
         
     def __call__(self, *point):
         self.out = []
-        assert all([hasattr(e, 'oneTurnMap') for e in self]), 'Some elements require calculation of their one-turn map.'
+        assert all([hasattr(e, 'oneTurnMap') for e in self.elements]), 'Some elements require calculation of their one-turn map.'
         for e in self:
             point = e(*point)
             self.out.append(point)
