@@ -4,7 +4,7 @@ from .common import madx2beamline
 from lieops.solver.splitting import yoshida
 from accphys import beamline
 
-def test_example(lattice_file='xmpl1.madx', tol=1e-8, tol2=2e-6, **kwargs):
+def test_example(lattice_file='xmpl1.madx', tol=1e-8, tol2=2e-6, tol3=1e-14, **kwargs):
     '''
     Test to import a MAD-X file and perform certain operations on a
     1D model, like splitting, hadamard, Magnus, ...
@@ -44,3 +44,11 @@ def test_example(lattice_file='xmpl1.madx', tol=1e-8, tol2=2e-6, **kwargs):
     assert all([abs(p2[k] - p3[k]) < tol2 for k in range(2)])
     assert all([abs(p3[k] - p4[k]) < tol2 for k in range(2)])
     assert all([abs(p4[k] - p1[k]) < tol2 for k in range(2)])
+    
+    # Test time reversability
+    part1_rev = part1[::-1]
+    inp = [0.001, -0.0042]
+    out1 = part1(*inp)
+    out2 = part1_rev(*[o.conjugate() for o in out1]) # conjugate means going backwards in time, i.e. reverting the direction of the momenta.
+    assert all([abs(out2[k] - inp[k]) < tol3 for k in range(2)])
+    
