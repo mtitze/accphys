@@ -109,7 +109,10 @@ class hard_edge_element:
         result = self.__class__(length=self.length)
         # copy all the fields
         for field, value in self.__dict__.items():
-            setattr(result, field, value)
+            if hasattr(value, 'copy'):
+                setattr(result, field, value.copy())
+            else:
+                setattr(result, field, value)
         return result
     
     def split(self, n_slices: int=1, return_scheme_ordering=False, **kwargs):

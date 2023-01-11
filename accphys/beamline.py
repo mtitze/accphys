@@ -216,11 +216,11 @@ class beamline:
         for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
             self.elements[n].calcOneTurnMap(**kwargs)
         
-    def __call__(self, *point):
+    def __call__(self, *point, **kwargs):
         self.out = []
         assert all([hasattr(e, 'oneTurnMap') for e in self.elements]), 'Some elements require calculation of their one-turn map.'
         for e in self:
-            point = e(*point)
+            point = e(*point, **kwargs)
             self.out.append(point)
         return point
     
@@ -294,7 +294,7 @@ class beamline:
         point = xieta
         points = []
         for k in tqdm(range(n_reps), disable=kwargs.get('disable_tqdm', False)):
-            point = self(*point)
+            point = self(*point, **kwargs)
             points.append(post_used(*point))
             
         if output_format in ['default', 'list']:
