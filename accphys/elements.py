@@ -275,17 +275,17 @@ class hard_edge_element:
             
         return new_elements, split_order
     
-    def calcOneTurnMap(self, method='bruteforce', t=-1, **kwargs):
-        if method != 'heyoka':
-            self.oneTurnMap = lexp(self.hamiltonian*self.length)
-            self.oneTurnMap.calcFlow(method=method, t=t, **kwargs)
-        else:
+    def calcOneTurnMap(self, method='bruteforce', t=1, **kwargs):
+        if method == 'heyoka':
             # Use the Heyoka solver. This may become very slow for large beamlines,
-            # but may be useful for the analysis/diagonsis of individual elements.
+            # but may be useful for the analysis/diagnostics of individual elements.
             #
             # Further details see
             # https://bluescarni.github.io/heyoka/index.html
-            self.oneTurnMap = heyoka(self.hamiltonian, t=t*self.length, **kwargs)
+            self.oneTurnMap = heyoka(-self.hamiltonian*self.length, t=t, **kwargs)
+        else:
+            self.oneTurnMap = lexp(-self.hamiltonian*self.length)
+            self.oneTurnMap.calcFlow(method=method, t=t, **kwargs)
         self._oneTurnMapMethod = method
     
     def __call__(self, *args, **kwargs):

@@ -396,5 +396,6 @@ class beamline:
         of the map near that point.
         '''
         fk = dragtfinn(*self.tpsa(*args, order=order), **kwargs)
-        fk = [-f for f in fk] # the minus sign is used here, because the beamline flow calculation is using t=-1 by default in calculating the flow. TODO: This should be checked for all routines.
-        return self.__class__(*fk) # no reverse here, because internally the flow is calculated, which is again given by pull-back (...)
+        fk = [-f for f in fk][::-1] # the minus sign is used here, because the beamline flow calculation is using negative exponents by default in calculating the flow.
+        return self.__class__(*fk)
+    
