@@ -390,13 +390,12 @@ class beamline:
         self._tpsa_xietaf = xietaf
         return xietaf
 
-    def dragtfinn(self, *args, order: int, **kwargs):
+    def dragtfinn(self, *position, order: int, **kwargs):
         '''
         Pass n-jets through the lattice at a point of interest. Then return the symplectic approximation (Dragt/Finn factorization)
         of the map near that point.
         '''
-        fk = dragtfinn(*self.tpsa(*args, order=order), **kwargs)
-        fk = [-f for f in fk][::-1] # the minus sign is used here, because the beamline tpsa calculation is using the flow maps,
-        # which originate from negative hamiltonians (...). The reverse order should come from a pull-back property.... 
-        return self.__class__(*fk)
+        df = dragtfinn(*self.tpsa(*position, order=order), offset=position, **kwargs)
+        df = [-f for f in df] # the minus signs are in place to compensate the one made in __call__; TODO: sign ...
+        return self.__class__(*df, offset=position, **kwargs)
     
