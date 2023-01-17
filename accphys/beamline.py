@@ -395,7 +395,7 @@ class beamline:
         Pass n-jets through the lattice at a point of interest. Then return the symplectic approximation (Dragt/Finn factorization)
         of the map near that point.
         '''
-        df = dragtfinn(*self.tpsa(*position, order=order), offset=position, **kwargs)
+        df = dragtfinn(*self.tpsa(*position, order=order), offset=position, order=order, **kwargs)
         df = [-f for f in df] # the minus signs are in place to compensate the one made in __call__; TODO: sign ...
         return self.__class__(*df, offset=position, **kwargs)
     
