@@ -385,17 +385,18 @@ class beamline:
             position = (0,)*n_args
         expansion = self._tpsa(*position, mult_prm=True, mult_drv=False) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
         max_power = max([e.hamiltonian.max_power for e in self.elements])
-        xietaf = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
+        taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
         self._tpsa_position = position
-        self._tpsa_xietaf = xietaf
-        return xietaf
+        self._tpsa_taylor_map = taylor_map
+        return taylor_map
 
     def dragtfinn(self, *position, order: int, **kwargs):
         '''
         Pass n-jets through the lattice at a point of interest. Then return the symplectic approximation (Dragt/Finn factorization)
         of the map near that point.
         '''
-        df = dragtfinn(*self.tpsa(*position, order=order), offset=position, order=order, **kwargs)
+        tpsa_order = kwargs.pop('tpsa_order', order)
+        df = dragtfinn(*self.tpsa(*position, order=tpsa_order), offset=position, order=order, **kwargs)
         df = [-f for f in df] # the minus signs are in place to compensate the one made in __call__; TODO: sign ...
         return self.__class__(*df, offset=position, **kwargs)
     
