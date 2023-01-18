@@ -24,10 +24,10 @@ def test_example(lattice_file='xmpl1.madx', tol=1e-8, tol2=2e-6, tol3=1e-14, **k
     
     bl_hdm = part2.hadamard(keys=keys, power=30)
     
-    bl_mag_A = beamline(bl_hdm[0].hamiltonian)
-    bl_mag_B = bl_hdm[1:].magnus(order=6, time=False)
-    bl_mag_A.calcOneTurnMap(method='2flow')
-    bl_mag_B.calcOneTurnMap(method='channell', n_slices=100)
+    bl_mag_A = bl_hdm[:-1].magnus(order=6, time=False)
+    bl_mag_B = beamline(bl_hdm[-1].hamiltonian)
+    bl_mag_A.calcOneTurnMap(method='channell', n_slices=100)
+    bl_mag_B.calcOneTurnMap(method='2flow')
     bl_mag = bl_mag_A + bl_mag_B
     
     xi0, eta0 = 0.0027, -0.0012 # these values should not be too large

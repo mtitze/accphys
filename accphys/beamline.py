@@ -169,7 +169,9 @@ class beamline:
         
         **kwargs
             Optional keyword arguments passed to lieops.core.combine.magnus routine
-        '''            
+        '''
+        # bch_sign = -1 is used here because the arguments are the negatives of the Hamiltonians (times their lengths) and 
+        # the magnus routine is working with the pure arguments & the lengths.
         hamiltonians = [e.hamiltonian*bch_sign for e in self]
         lengths = np.array(self.lengths())
         self._magnus_series, self._magnus_hamiltonian, self._magnus_forest = magnus(*hamiltonians, order=order, 
@@ -363,12 +365,11 @@ class beamline:
         beamline
             A beamline of hard_edge_element(s) corresponding to the output of hadamard.
         '''
-        hamiltonians = [-e.operator.argument for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline;
-
+        hamiltonians = [e.operator.argument for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline (+)
         g1, g2, g2_all = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
-        new_elements = [hard_edge_element(lexp(-h1), length=1) for h1 in g1] + [hard_edge_element(lexp(-h2), length=1) for h2 in g2] # h1 and h2 are considered to be the full arguments of the operators, so we initiate the elements with lexp objects.
-        out = self.__class__(*new_elements[::-1]) # again revert the order, because the last element in 'new_elements' was intended to be be executed first.
-        out._hadamard_trail = g2_all[::-1]
+        new_elements = [hard_edge_element(lexp(h1), length=1) for h1 in g1] + [hard_edge_element(lexp(h2), length=1) for h2 in g2] # h1 and h2 are considered to be the full arguments of the operators, so we initiate the elements with lexp objects.
+        out = self.__class__(*new_elements) # no reverse: The first element in new_elements is acting last, but on lie-polynomials. On points it is acting *first* due to the pull-back property on numbers. So the first element also corresponds to the first element in the new lattice.
+        out._hadamard_trail = g2_all
         return out
     
     def tpsa(self, *position, order: int):
