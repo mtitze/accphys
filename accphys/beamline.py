@@ -395,8 +395,17 @@ class beamline:
         Pass n-jets through the lattice at a point of interest. Then return the symplectic approximation (Dragt/Finn factorization)
         of the map near that point.
         '''
+        # I) Check whether it is necessary to perform a TPSA calculation in advance
         tpsa_order = kwargs.pop('tpsa_order', order)
-        df = dragtfinn(*self.tpsa(*position, order=tpsa_order), offset=position, order=order, **kwargs)
+        compute_tpsa = True
+        if hasattr(self, '_tpsa'):
+            # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
+            compute_tpsa = not (self._tpsa.order >= tpsa_order) or not all([self._tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
+        if compute_tpsa:
+            _ = self.tpsa(*position, order=tpsa_order)
+            
+        # II) Perform the Dragt/Finn factorization
+        df = dragtfinn(*self._tpsa_taylor_map, offset=position, order=order, **kwargs)
         df = [-f for f in df] # the minus signs are in place to compensate the one made in __call__; TODO: sign ...
         return self.__class__(*df, offset=position, **kwargs)
     
