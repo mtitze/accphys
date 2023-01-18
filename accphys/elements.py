@@ -35,7 +35,7 @@ class hard_edge_element:
 
         if hasattr(self, 'full_hamiltonian'):
             self.setHamiltonian(**kwargs)
-        
+                    
     def calcHamiltonian(self, beta0, sqrtexp: int=2, tol=5e-8, **kwargs):
         '''
         Compute the Hamiltonian of a drift.
@@ -105,6 +105,10 @@ class hard_edge_element:
         if tol > 0:
             ham = ham.above(tol)
         self.hamiltonian = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
+        self.setOperator()
+        
+    def setOperator(self, **kwargs):
+        self.operator = lexp(-self.hamiltonian*self.length)
         
     def copy(self):
         result = self.__class__(length=self.length)
@@ -279,23 +283,10 @@ class hard_edge_element:
             
         return new_elements, split_order
     
-    def calcOneTurnMap(self, method='bruteforce', t=1, **kwargs):
-        if method == 'heyoka':
-            # Use the Heyoka solver. This may become very slow for large beamlines,
-            # but may be useful for the analysis/diagnostics of individual elements.
-            #
-            # Further details see
-            # https://bluescarni.github.io/heyoka/index.html
-            self.oneTurnMap = heyoka(-self.hamiltonian*self.length, t=t, **kwargs)
-        else:
-            if not hasattr(self, 'oneTurnMap'):
-                self.oneTurnMap = lexp(-self.hamiltonian*self.length)
-            self.oneTurnMap.calcFlow(method=method, t=t, **kwargs)
-        self._oneTurnMapMethod = method
-    
     def __call__(self, *args, **kwargs):
-        assert hasattr(self, 'oneTurnMap'), 'call self.calcOneTurnMap first.'
-        return self.oneTurnMap(*args, **kwargs)
+        if not hasattr(self, 'operator'):
+            self.setOperator(**kwargs)
+        return self.operator(*args, **kwargs)
         
         
 class phaserot(hard_edge_element):

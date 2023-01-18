@@ -16,13 +16,10 @@ def test_quad_ref(x0, y0, px0, py0, gstr, length, tol=1e-14):
     ham_quad = 0.5*(px**2 + py**2) + 0.5*gstr*(x**2 - y**2)
     quad = hard_edge_element(ham_quad, length=length)
     b1 = beamline(quad)
-    b2 = beamline(quad)
-    #b3 = beamline(quad)
-    
     b1.calcOneTurnMap(power=40)
+    b2 = beamline(quad)
     b2.calcOneTurnMap(method='heyoka')
-    #b3.calcOneTurnMap(method='tao')
-    
+        
     # expectation
     sg = np.sqrt(np.abs(gstr))
     cos = np.cos(sg*length)
@@ -50,7 +47,7 @@ def test_quad_ref(x0, y0, px0, py0, gstr, length, tol=1e-14):
     eta1_0 = xi1_0.conjugate()
     eta2_0 = xi2_0.conjugate()
     
-    for b in [b1, b2]:# b3]:
+    for b in [b1, b2]:
         xi1f_1, xi2f_1, eta1f_1, eta2f_1 = b(xi1_0, xi2_0, eta1_0, eta2_0)
         xf_1 = (xi1f_1 + eta1f_1)/np.sqrt(2)
         yf_1 = (xi2f_1 + eta2f_1)/np.sqrt(2)
@@ -81,17 +78,15 @@ def test_splitting1(xi0, eta0, yoshida_order, n_slices, tol):
     ele = hard_edge_element(ham, length=0.18)
     
     bl = beamline(ele)
-    bl.calcOneTurnMap(method='heyoka')
     
     y1 = yoshida()
     yoshida_scheme = y1.build(yoshida_order)
 
     keys = [(0, 2), (1, 1), (2, 0)]
     bls = bl.split(keys=keys, scheme=yoshida_scheme, n_slices=n_slices)
-    bls.calcOneTurnMap(method='heyoka')
     
-    result = bl(xi0, eta0)
-    result_s = bls(xi0, eta0)
+    result = bl(xi0, eta0, method='heyoka')
+    result_s = bls(xi0, eta0, method='heyoka')
     
-    assert max(np.abs(result - result_s)) < tol
+    assert max([np.abs(result[k] - result_s[k]) for k in range(2)]) < tol
     

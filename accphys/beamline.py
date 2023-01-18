@@ -150,6 +150,13 @@ class beamline:
         for e in self.elements:
             e.setHamiltonian(*args, **kwargs)
             
+    def calcOneTurnMap(self, *args, **kwargs):
+        '''
+        Calculate the flow of each element explicitly (i.e. call calcFlow for each element operator).        
+        '''
+        for e in tqdm(self.elements, disable=kwargs.get('disable_tqdm', False)):
+            e.operator.calcFlow(*args, **kwargs)
+            
     def magnus(self, order=1, bch_sign=-1, **kwargs):
         '''
         Combine the individual Hamiltonians by means of Magnus series.
@@ -196,28 +203,9 @@ class beamline:
                 k += 1
         
         return uniques
-        
-    def calcOneTurnMap(self, **kwargs):
-        '''
-        Integrate the equations of motion by 'brute-force', namely by calculating the
-        flow(s) exp(-:H:) applied to coordinate functions, up to specific orders.
-        
-        Parameters
-        ----------
-        method: str, optional
-            The method which should be used for the elements in the beamline.
-            
-        **kwargs 
-            Optional parameters passed to
-            accphys.elements.hard_edge_element.calcOneTurnMap 
-            routine (e.g. any possible max_power)
-        '''
-        for n in tqdm(range(len(self.elements)), disable=kwargs.get('disable_tqdm', False)):
-            self.elements[n].calcOneTurnMap(**kwargs)
-        
+
     def __call__(self, *point, **kwargs):
         self.out = []
-        assert all([hasattr(e, 'oneTurnMap') for e in self.elements]), 'Some elements require calculation of their one-turn map.'
         for e in self:
             point = e(*point, **kwargs)
             self.out.append(point)
