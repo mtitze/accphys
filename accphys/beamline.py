@@ -357,12 +357,11 @@ class beamline:
         beamline
             A beamline of hard_edge_element(s) corresponding to the output of hadamard.
         '''
-        t = kwargs.get('t', 1)
-        hamiltonians = [e.hamiltonian*e.length*t for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline; TODO: sign
+        hamiltonians = [e.hamiltonian*e.length for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline
 
         g1, g2, g2_all = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
         new_elements = [hard_edge_element(h1, length=1) for h1 in g1] + [hard_edge_element(h2, length=1) for h2 in g2] 
-        out = self.__class__(*new_elements[::-1])
+        out = self.__class__(*new_elements[::-1]) # again revert the order, because the last element in 'new_elements' will be executed first.
         out._hadamard_trail = g2_all[::-1]
         return out
     

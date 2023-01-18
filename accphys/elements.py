@@ -23,12 +23,13 @@ class hard_edge_element:
             self.calcHamiltonian(*args, **kwargs)
         elif 'full_hamiltonian' in kwargs.keys(): # full_hamiltonian preference over Hamiltonian from beta0-calculation.
             self.full_hamiltonian = kwargs['full_hamiltonian']
-        elif len(args) == 1: # full_hamiltonian preference over Hamiltonian from beta0-calculation.
+        elif len(args) == 1: # In this case we assume theat args represents a Hamiltonian or Lie-operator.
             a = args[0]
             if isinstance(a, poly):
                 self.full_hamiltonian = a
             elif isinstance(a, lexp):
-                self.full_hamiltonian = a.argument
+                self.full_hamiltonian = -a.argument/length
+                self.oneTurnMap = a
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
@@ -287,7 +288,8 @@ class hard_edge_element:
             # https://bluescarni.github.io/heyoka/index.html
             self.oneTurnMap = heyoka(-self.hamiltonian*self.length, t=t, **kwargs)
         else:
-            self.oneTurnMap = lexp(-self.hamiltonian*self.length)
+            if not hasattr(self, 'oneTurnMap'):
+                self.oneTurnMap = lexp(-self.hamiltonian*self.length)
             self.oneTurnMap.calcFlow(method=method, t=t, **kwargs)
         self._oneTurnMapMethod = method
     
