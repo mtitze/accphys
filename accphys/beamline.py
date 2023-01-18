@@ -32,10 +32,9 @@ class beamline:
         assert n_elements > 0
         for k in range(n_elements):
             # A default hard-edge model will be used. This feature is made for convenience usage.
-            if isinstance(elements[k], poly):
+            if isinstance(elements[k], poly) or isinstance(elements[k], lexp):
                 elements[k] = hard_edge_element(elements[k])
-            elif isinstance(elements[k], lexp):
-                elements[k] = hard_edge_element(elements[k].argument)
+            # else: elements[k] = elements[k]
         assert all([hasattr(e, 'hamiltonian') for e in elements])
         dim0 = elements[0].hamiltonian.dim
         assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
