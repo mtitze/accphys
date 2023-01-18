@@ -17,19 +17,31 @@ class hard_edge_element:
     def __init__(self, *args, length=1, **kwargs):
         '''
         Class to model the Hamiltonian of a 6D hard-edge element.
+        
+        Parameters
+        ----------
+        *args
+            If also beta0 is given, then these will be the parameters of self.calcHamiltonian. 
+            For example the field strengths of the magnets (check out the respective classes in elements.py).
+            
+        length: float, optional
+            The length of the element.
+            
+        **kwargs
+            Optional parameters passed to the calculation of the Hamiltonian.
         '''
         self.length = length
         if 'beta0' in kwargs.keys():
             self.calcHamiltonian(*args, **kwargs)
         elif 'full_hamiltonian' in kwargs.keys(): # full_hamiltonian preference over Hamiltonian from beta0-calculation.
             self.full_hamiltonian = kwargs['full_hamiltonian']
-        elif len(args) == 1: # In this case we assume theat args represents a Hamiltonian or Lie-operator.
+        elif len(args) == 1: # In this case we assume theat args[0] represents a Hamiltonian or Lie-operator.
             a = args[0]
             if isinstance(a, poly):
                 self.full_hamiltonian = a
             elif isinstance(a, lexp):
                 self.full_hamiltonian = -a.argument/length
-                self.oneTurnMap = a
+                self.operator = a
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
 

@@ -211,6 +211,25 @@ class beamline:
             self.out.append(point)
         return point
     
+    def arguments(self):
+        '''
+        Return the arguments f in the individual Lie operators exp(:f:) of the beamline.
+        Note that these arguments differ from the Hamiltonians by -1 and the length.
+        
+        The order of the return list will agree with the order of the elements in the lattice.
+        '''
+        assert all([hasattr(e, 'operator') for e in self])
+        return [e.operator.argument for e in self]
+    
+    def operators(self):
+        '''
+        Return the operators exp(:f:) of the beamline.
+        
+        The order of the return list will agree with the order of the elements in the lattice.
+        '''
+        assert all([hasattr(e, 'operator') for e in self])
+        return [e.operator for e in self]
+    
     def track(self, *xieta, n_reps: int=1, post=lambda *x: x, real=False,
               output_format='default', **kwargs):
         '''
@@ -344,11 +363,11 @@ class beamline:
         beamline
             A beamline of hard_edge_element(s) corresponding to the output of hadamard.
         '''
-        hamiltonians = [e.hamiltonian*e.length for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline
+        hamiltonians = [-e.operator.argument for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline;
 
         g1, g2, g2_all = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
-        new_elements = [hard_edge_element(h1, length=1) for h1 in g1] + [hard_edge_element(h2, length=1) for h2 in g2] 
-        out = self.__class__(*new_elements[::-1]) # again revert the order, because the last element in 'new_elements' will be executed first.
+        new_elements = [hard_edge_element(lexp(-h1), length=1) for h1 in g1] + [hard_edge_element(lexp(-h2), length=1) for h2 in g2] # h1 and h2 are considered to be the full arguments of the operators, so we initiate the elements with lexp objects.
+        out = self.__class__(*new_elements[::-1]) # again revert the order, because the last element in 'new_elements' was intended to be be executed first.
         out._hadamard_trail = g2_all[::-1]
         return out
     
@@ -392,6 +411,5 @@ class beamline:
             
         # II) Perform the Dragt/Finn factorization
         df = dragtfinn(*self._tpsa_taylor_map, offset=position, order=order, **kwargs)
-        df = [-f for f in df] # the minus signs are in place to compensate the one made in __call__; TODO: sign ...
-        return self.__class__(*df, offset=position, **kwargs)
+        return self.__class__(*[lexp(f) for f in df], offset=position, **kwargs) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators
     
