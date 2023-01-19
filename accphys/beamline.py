@@ -372,7 +372,7 @@ class beamline:
         out._hadamard_trail = g2_all
         return out
     
-    def tpsa(self, *position, order: int):
+    def tpsa(self, *position, order: int, **kwargs):
         '''
         Pass n-jets through the flow functions of the individual elements.
         
@@ -383,13 +383,17 @@ class beamline:
             
         order: int
             The number of derivatives we want to take into account.
+            
+        **kwargs
+            Optional keyworded arguments passed to njet.derive class (and therefore the underlying
+            operators of this beamline).
         '''
         dim = self.get_dim()
         n_args = dim*2
         self._tpsa = derive(self, n_args=n_args, order=order)
         if len(position) == 0:
             position = (0,)*n_args
-        expansion = self._tpsa(*position, mult_prm=True, mult_drv=False) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
+        expansion = self._tpsa(*position, mult_prm=True, mult_drv=False, **kwargs) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
         max_power = max([e.hamiltonian.max_power for e in self.elements])
         taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
         self._tpsa_position = position
@@ -408,7 +412,7 @@ class beamline:
             # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
             compute_tpsa = not (self._tpsa.order >= tpsa_order) or not all([self._tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
         if compute_tpsa:
-            _ = self.tpsa(*position, order=tpsa_order)
+            _ = self.tpsa(*position, order=tpsa_order, **kwargs)
             
         # II) Perform the Dragt/Finn factorization
         df = dragtfinn(*self._tpsa_taylor_map, offset=position, order=order, **kwargs)
