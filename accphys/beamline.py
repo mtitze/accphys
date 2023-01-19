@@ -390,12 +390,13 @@ class beamline:
         '''
         dim = self.get_dim()
         n_args = dim*2
-        self._tpsa = derive(self, n_args=n_args, order=order)
+        _tpsa = derive(self, n_args=n_args, order=order)
         if len(position) == 0:
             position = (0,)*n_args
-        expansion = self._tpsa(*position, mult_prm=True, mult_drv=False, **kwargs) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
+        expansion = _tpsa(*position, mult_prm=True, mult_drv=False, **kwargs) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
         max_power = max([e.hamiltonian.max_power for e in self.elements])
         taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
+        self._tpsa = _tpsa
         self._tpsa_position = position
         self._tpsa_taylor_map = taylor_map
         return taylor_map

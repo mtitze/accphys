@@ -1,16 +1,18 @@
 import os
-from .common import madx2beamline
+import pytest
 
+from .common import madx2beamline, qp2xieta
 from lieops.solver.splitting import yoshida
 from accphys import beamline
 
-def test_example(lattice_file='xmpl1.madx', tol=1e-8, tol2=2e-6, tol3=1e-14, **kwargs):
+lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
+seq = madx2beamline(lattice_file=lattice_file)
+
+def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     '''
-    Test to import a MAD-X file and perform certain operations on a
-    1D model, like splitting, hadamard, Magnus, ...
+    Test a typical MAD-X lattice (1D) with respect to tracking after
+    various lattice operations.
     '''
-    lattice_file = f'{os.getcwd()}/tests/{lattice_file}'
-    seq = madx2beamline(lattice_file=lattice_file, **kwargs)
     
     part1 = seq.copy()
     part1.setHamiltonians(0)
@@ -49,3 +51,80 @@ def test_example(lattice_file='xmpl1.madx', tol=1e-8, tol2=2e-6, tol3=1e-14, **k
     out2 = part1_rev(*[o.conjugate() for o in out1]) # conjugate means going backwards in time, i.e. reverting the direction of the momenta.
     assert all([abs(out2[k] - inp[k]) < tol3 for k in range(2)])
     
+@pytest.mark.parametrize("q0, p0", [(0, 0)])
+def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
+    '''
+    Test a typical MAD-X lattice (1D) in the following steps:
+    1) Construct the Dragt/Finn factorization of the lattice.
+    2) Performing a magnus-combination after Hadamard's sorting of the original
+       lattice, then expanding the result again using Dragt/Finn factorization.
+    3) Compare the results of 1) and 2) in regards of their Hamiltonians and tracking results.
+    
+    N.B: Tests currently only working at zero; the TPSA appraoch is too rough for
+         most checks. Requires dedicated test.
+    '''
+    df_inp = {'order': order, 'power': 30, 'pos2': 'left', 'tol': tol}
+    
+    part1 = seq.copy()
+    part1.setHamiltonians(0)
+    
+    xieta0 = qp2xieta(q0, p0)
+    part1_df = part1.dragtfinn(*xieta0, **df_inp) # Dragt/Finn factorization of the lattice 'part1' around the point xieta0
+    part1_df2 = part1_df.dragtfinn(*xieta0, **df_inp) # Repeat Dragt/Finn factorization; it must lead to the same lattice
+    
+    tolerances1 = [1e-15, 1e-15, 5e-13, 5e-10, 5e-6, 1e-3, 3]
+    assert len(part1_df) == len(part1_df2)
+    assert all([(part1_df[k].hamiltonian - part1_df2[k].hamiltonian).above(tolerances1[k]) == 0 for k in range(len(tolerances1))])
+    
+    # Combine the higher-order factors of the Dragt/Finn factorization by Magnus-series.
+    # The order of the preceeding Dragt/Finn factorization should be sufficiently high to obtain better accuracy
+    bl_mag = part1_df[0:2] + part1_df[2:].magnus(order=magnus_order, max_power=10, time=False)
+    
+    # Expand bl_mag again:
+    bl_mag_df = bl_mag.dragtfinn(*xieta0, **df_inp)
+    
+    # compare Hamiltonians of the two Dragt/Finn factorizations:
+    tolerances2 = [1e-15, 1e-15, 5e-13, 1e-9, 5e-7, 3e-4, 0.4]
+    assert len(part1_df) == len(bl_mag_df)
+    assert all([(part1_df[k].hamiltonian - bl_mag_df[k].hamiltonian).above(tolerances2[k]) == 0 for k in range(len(tolerances2))])
+    
+    # split the part1 lattice & perform Hadamard's Lemma:
+    y1 = yoshida()
+    yoshida_scheme = y1.build(0)
+    step = 0.02
+    keys = [(0, 2), (1, 1), (2, 0)]
+    part2 = part1.split(keys=keys, scheme=yoshida_scheme, step=step)
+    bl_hdm = part2.hadamard(keys=keys, power=30)
+    # check that the degrees of 'bl_hdm' are arranged as expected; note that
+    # in the 1D-case it is possible to combine the 2nd order Hamiltonians into a single element:
+    assert (e.hamiltonian.maxdeg() > 2 for e in bl_hdm[:-1]) and bl_hdm[-1].hamiltonian.maxdeg() == 2
+        
+    # combine the Hadamard lattice by Magnus series:
+    bl_mag2 = bl_hdm[:-1].magnus(order=magnus_order, max_power=10, time=False) + bl_hdm[-1]
+    bl_mag2.calcOneTurnMap(method='njet', n_slices=10, power=30)
+
+    # expand both the Hadamard lattice and the newly lattice bl_mag2:
+    bl_mag2_df = bl_mag2.dragtfinn(*xieta0, **df_inp)
+    df_inp['tol'] = 2e-4 # relaxing the tolerance appears to not significantly change the next calculation, but may improve a bit the speed.
+    bl_hdm_df = bl_hdm.dragtfinn(*xieta0, **df_inp)
+    
+    tolerances3 = [1e-15, 1e-15, 5e-13, 1e-9, 5e-7, 1e-4, 1e-1]
+    assert len(bl_mag2_df) == len(bl_hdm_df)
+    assert all([(bl_mag2_df[k].hamiltonian - bl_hdm_df[k].hamiltonian).above(tolerances3[k]) == 0 for k in range(len(bl_hdm_df))])    
+    
+    tolerances4 = [1e-14, 1e-14, 5e-4, 3e-3, 3e-3, 3e-3, 5e-3]
+    # since the higher-order values differ more significantly, we use relative errors
+    assert len(bl_mag2_df) == len(part1_df)
+    for k in range(len(bl_mag2_df)):
+        ak, bk = bl_mag2_df[k].hamiltonian, part1_df[k].hamiltonian
+        assert ak.keys() == bk.keys()
+        max_rel_error = 0
+        for key in ak.keys():
+            value1 = ak[key]
+            value2 = bk[key]
+            max_abs_value = max([abs(value1), abs(value2)])
+            rel_error = abs(value1 - value2)/max_abs_value
+            if rel_error > max_rel_error:
+                max_rel_error = rel_error
+        assert max_rel_error < tolerances4[k]
+        

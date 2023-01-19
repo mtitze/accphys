@@ -15,3 +15,11 @@ def madx2beamline(lattice_file, gev=2.5, max_power=10):
     raw_df, inp = madx2dataframe(lattice_file)
     seq = to_beamline(raw_df, beta0=beta0, max_power=max_power, **inp)
     return seq
+
+def qp2xieta(q, p):
+    sqrt2 = float(np.sqrt(2))
+    return (q + p*1j)/sqrt2, (q - p*1j)/sqrt2
+
+def xieta2qp(xi, eta):
+    sqrt2 = float(np.sqrt(2))
+    return (xi + eta)/sqrt2, (xi - eta)/sqrt2/1j
