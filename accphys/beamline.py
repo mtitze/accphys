@@ -376,6 +376,8 @@ class beamline:
         '''
         Pass n-jets through the flow functions of the individual elements.
         
+        The results are stored in self._tpsa*. 
+        
         Parameters
         ----------
         *position: float or array, optional
@@ -397,25 +399,52 @@ class beamline:
         max_power = max([e.hamiltonian.max_power for e in self.elements])
         taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
         self._tpsa = _tpsa
+        self._tpsa_input_parameters = kwargs.copy()
         self._tpsa_position = position
         self._tpsa_taylor_map = taylor_map
         return taylor_map
 
     def dragtfinn(self, *position, order: int, **kwargs):
         '''
-        Pass n-jets through the lattice at a point of interest. Then return the symplectic approximation (Dragt/Finn factorization)
-        of the map near that point.
+        Compute the Dragt/Finn factorization of the current Taylor map (self._tpsa_taylor_map) of the lattice.
+        
+        Parameters
+        ----------
+        *position: coordinate(s)
+            The point of interest at which the Taylor map should be considered.
+            
+        order: int
+            The maximal order of terms in the Dragt/Finn factorization. This value should preferably
+            take into account the order of the given Taylor-map.
+            
+        **kwargs
+            Arguments passed to dragtfinn routine. In particular one should
+            provide flow calculation parameters to the underlying Lie operators.
+            
+        Returns
+        -------
+        beamline
+            An object of type self.__class__ corresponding to a beamline in which the elements are given by
+            the result of the Factorization. Note that the original lengths of the elements will (and can) not be preserved.
         '''
-        # I) Check whether it is necessary to perform a TPSA calculation in advance
+        # I) Check whether it is necessary to perform a TPSA calculation prior to dragtfinn
         tpsa_order = kwargs.pop('tpsa_order', order)
+        
         compute_tpsa = True
+        # Determine the TPSA input (by separating the dragtfinn input from the pure flow input) 
+        tpsa_input = kwargs.copy()
+        for key in ['offset', 'pos2', 'tol', 'tol_checks', 'force_order']:
+            _ = tpsa_input.pop(key, None)
         if hasattr(self, '_tpsa'):
             # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
             compute_tpsa = not (self._tpsa.order >= tpsa_order) or not all([self._tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
+            # Compute the input parameters for TPSA and check if that has changed:
+            compute_tpsa = compute_tpsa or self._tpsa_input_parameters != tpsa_input
         if compute_tpsa:
-            _ = self.tpsa(*position, order=tpsa_order, **kwargs)
+            _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
-        df = dragtfinn(*self._tpsa_taylor_map, offset=position, order=order, **kwargs)
-        return self.__class__(*[lexp(f) for f in df], offset=position, **kwargs) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators
+        _ = kwargs.setdefault('offset', self._tpsa_position)
+        df = dragtfinn(*self._tpsa_taylor_map, order=order, **kwargs)
+        return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators
     
