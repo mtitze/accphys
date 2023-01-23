@@ -7,6 +7,8 @@ from njet import derive
 from lieops import create_coords, magnus, lexp, poly
 from lieops import hadamard2d as hadamard
 from lieops.core import dragtfinn
+from lieops.core.tools import poly2vec
+from lieops.linalg.checks import symplecticity
 
 from .elements import hard_edge_element
 
@@ -372,7 +374,7 @@ class beamline:
         out._hadamard_trail = g2_all
         return out
     
-    def tpsa(self, *position, order: int, **kwargs):
+    def tpsa(self, *position, order: int, tol=1e-14, **kwargs):
         '''
         Pass n-jets through the flow functions of the individual elements.
         
@@ -386,6 +388,11 @@ class beamline:
         order: int
             The number of derivatives we want to take into account.
             
+        tol: float, optional
+            A tolerance to check (if > 0) if the resulting map is indeed symplectic.
+            It is recommended to perform this check to avoid errors in places where
+            the one-turn map might be used.
+            
         **kwargs
             Optional keyworded arguments passed to njet.derive class (and therefore the underlying
             operators of this beamline).
@@ -397,7 +404,10 @@ class beamline:
             position = (0,)*n_args
         expansion = _tpsa(*position, mult_prm=True, mult_drv=False, **kwargs) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
         max_power = max([e.hamiltonian.max_power for e in self.elements])
-        taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]
+        taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]        
+        if tol > 0: # check if map is symplectic; it is recommended to do it here to avoid errors in routines which use the Taylor map.
+            R = np.array([poly2vec(e.homogeneous_part(1)).tolist() for e in taylor_map])
+            check, message = symplecticity(R, tol=tol)
         self._tpsa = _tpsa
         self._tpsa_input_parameters = kwargs.copy()
         self._tpsa_position = position
@@ -417,6 +427,9 @@ class beamline:
             The maximal order of terms in the Dragt/Finn factorization. This value should preferably
             take into account the order of the given Taylor-map.
             
+        tol_checks: float, optional
+            A parameter to perform certain consistency checks.
+            
         **kwargs
             Arguments passed to dragtfinn routine. In particular one should
             provide flow calculation parameters to the underlying Lie operators.
@@ -428,8 +441,7 @@ class beamline:
             the result of the Factorization. Note that the original lengths of the elements will (and can) not be preserved.
         '''
         # I) Check whether it is necessary to perform a TPSA calculation prior to dragtfinn
-        tpsa_order = kwargs.pop('tpsa_order', order)
-        
+        tpsa_order = kwargs.pop('tpsa_order', order)        
         compute_tpsa = True
         # Determine the TPSA input (by separating the dragtfinn input from the pure flow input) 
         tpsa_input = kwargs.copy()
@@ -441,7 +453,7 @@ class beamline:
             # Compute the input parameters for TPSA and check if that has changed:
             compute_tpsa = compute_tpsa or self._tpsa_input_parameters != tpsa_input
         if compute_tpsa:
-            _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
+            _ = self.tpsa(*position, order=tpsa_order, tol=kwargs.get('tol_checks', 0), **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
         _ = kwargs.setdefault('offset', self._tpsa_position)
