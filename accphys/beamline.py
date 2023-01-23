@@ -433,7 +433,7 @@ class beamline:
         compute_tpsa = True
         # Determine the TPSA input (by separating the dragtfinn input from the pure flow input) 
         tpsa_input = kwargs.copy()
-        for key in ['offset', 'pos2', 'tol', 'tol_checks', 'force_order']:
+        for key in ['offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
             _ = tpsa_input.pop(key, None)
         if hasattr(self, '_tpsa'):
             # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.

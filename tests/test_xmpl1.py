@@ -63,7 +63,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     N.B: Tests currently only working at zero; the TPSA appraoch is too rough for
          most checks. Requires dedicated test.
     '''
-    df_inp = {'order': order, 'power': 30, 'pos2': 'left', 'tol': tol}
+    df_inp = {'order': order, 'power': 30, 'pos2': 'left', 'tol': tol, 'comb2': False}
     
     part1 = seq.copy()
     part1.setHamiltonians(0)
