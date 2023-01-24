@@ -405,9 +405,9 @@ class beamline:
         expansion = _tpsa(*position, mult_prm=True, mult_drv=False, **kwargs) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
         max_power = max([e.hamiltonian.max_power for e in self.elements])
         taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]        
-        if tol > 0: # check if map is symplectic; it is recommended to do it here to avoid errors in routines which use the Taylor map.
+        if tol > 0: # check if map is symplectic; it is recommended to do this check here to avoid errors in routines which use the Taylor map.
             R = np.array([poly2vec(e.homogeneous_part(1)).tolist() for e in taylor_map])
-            check, message = symplecticity(R, tol=tol)
+            check, message = symplecticity(R, tol=tol, warn=kwargs.get('warn', True))
         self._tpsa = _tpsa
         self._tpsa_input_parameters = kwargs.copy()
         self._tpsa_position = position
