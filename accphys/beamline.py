@@ -402,6 +402,22 @@ class beamline:
             check, message = symplecticity(R, tol=tol, warn=kwargs.get('warn', True))
         self._tpsa = tpsa_out
         return tpsa_out
+    
+    def _memCheck_tpsa(self, *position, order: int, tol_checks=0, **kwargs):
+        '''
+        Check whether it is necessary to perform a TPSA calculation by
+        looking at the position, the order and other input parameters.
+        '''
+        compute_tpsa = True
+        if hasattr(self, '_tpsa'):
+            # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
+            tpsa_order = self._tpsa['DA'].order
+            tpsa_position = self._tpsa['position']
+            compute_tpsa = not (tpsa_order >= order) or not all([tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
+            # Compute the input parameters for TPSA and check if that has changed:
+            compute_tpsa = compute_tpsa or self._tpsa['input'] != kwargs
+        if compute_tpsa:
+            _ = self.tpsa(*position, order=order, tol=tol_checks, **kwargs)
 
     def dragtfinn(self, *position, order: int, **kwargs):
         '''
@@ -430,21 +446,12 @@ class beamline:
             the result of the Factorization. Note that the original lengths of the elements will (and can) not be preserved.
         '''
         # I) Check whether it is necessary to perform a TPSA calculation prior to dragtfinn
-        tpsa_order = kwargs.pop('tpsa_order', order)        
-        compute_tpsa = True
+        tpsa_order = kwargs.pop('tpsa_order', order)
         # Determine the TPSA input (by separating the dragtfinn input from the pure flow input) 
         tpsa_input = kwargs.copy()
         for key in ['offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
             _ = tpsa_input.pop(key, None)
-        if hasattr(self, '_tpsa'):
-            # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
-            tpsa_self = self._tpsa['DA']
-            tpsa_position = self._tpsa['position']
-            compute_tpsa = not (tpsa_self.order >= tpsa_order) or not all([tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
-            # Compute the input parameters for TPSA and check if that has changed:
-            compute_tpsa = compute_tpsa or self._tpsa['input'] != tpsa_input
-        if compute_tpsa:
-            _ = self.tpsa(*position, order=tpsa_order, tol=kwargs.get('tol_checks', 0), **tpsa_input)
+        self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
         _ = kwargs.setdefault('offset', self._tpsa['position'])
