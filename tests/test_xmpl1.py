@@ -24,7 +24,7 @@ def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     keys = [(0, 2), (1, 1), (2, 0)]
     part2 = part1.split(keys=keys, scheme=yoshida_scheme, step=step)
     
-    bl_hdm = part2.hadamard(keys=keys, power=30)
+    bl_hdm = part2.reshuffle(keys=keys, power=30)
     
     bl_mag_A = bl_hdm[:-1].magnus(order=6, time=False)
     bl_mag_B = beamline(bl_hdm[-1].hamiltonian)
@@ -56,7 +56,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     '''
     Test a typical MAD-X lattice (1D) in the following steps:
     1) Construct the Dragt/Finn factorization of the lattice.
-    2) Performing a magnus-combination after Hadamard's sorting of the original
+    2) Performing a magnus-combination after reshuffling the original
        lattice, then expanding the result again using Dragt/Finn factorization.
     3) Compare the results of 1) and 2) in regards of their Hamiltonians and tracking results.
     
@@ -88,22 +88,22 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     assert len(part1_df) == len(bl_mag_df)
     assert all([(part1_df[k].hamiltonian - bl_mag_df[k].hamiltonian).above(tolerances2[k]) == 0 for k in range(len(tolerances2))])
     
-    # split the part1 lattice & perform Hadamard's Lemma:
+    # split the part1 lattice & perform reshuffling using Hadamard's Lemma:
     y1 = yoshida()
     yoshida_scheme = y1.build(0)
     step = 0.02
     keys = [(0, 2), (1, 1), (2, 0)]
     part2 = part1.split(keys=keys, scheme=yoshida_scheme, step=step)
-    bl_hdm = part2.hadamard(keys=keys, power=30)
+    bl_hdm = part2.reshuffle(keys=keys, power=30)
     # check that the degrees of 'bl_hdm' are arranged as expected; note that
     # in the 1D-case it is possible to combine the 2nd order Hamiltonians into a single element:
     assert (e.hamiltonian.maxdeg() > 2 for e in bl_hdm[:-1]) and bl_hdm[-1].hamiltonian.maxdeg() == 2
     
-    # combine the Hadamard lattice by Magnus series:
+    # combine the reshuffled lattice by Magnus series:
     bl_mag2 = bl_hdm[:-1].magnus(order=magnus_order, max_power=10, time=False) + bl_hdm[-1]
     bl_mag2.calcOneTurnMap(method='njet', n_slices=10, power=30)
 
-    # expand both the Hadamard lattice and the newly lattice bl_mag2:
+    # expand both the reshuffled lattice and the newly lattice bl_mag2:
     bl_mag2_df = bl_mag2.dragtfinn(*xieta0, **df_inp)
     df_inp['tol'] = 2e-4 # relaxing the tolerance appears to not significantly change the next calculation, but may improve a bit the speed.
     bl_hdm_df = bl_hdm.dragtfinn(*xieta0, **df_inp)

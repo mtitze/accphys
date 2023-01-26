@@ -2,12 +2,10 @@ import numpy as np
 from tqdm import tqdm
 import warnings
 
-from njet import derive
-
 from lieops import create_coords, magnus, lexp, poly
-from lieops import hadamard2d as hadamard
+from lieops.core.hadamard import reshuffle2d as reshuffle
 from lieops.core import dragtfinn
-from lieops.core.tools import poly2vec
+from lieops.core.tools import poly2vec, tpsa
 from lieops.linalg.checks import symplecticity
 
 from .elements import hard_edge_element
@@ -357,24 +355,23 @@ class beamline:
         assert max(new_ordering) + 1 == len(new_elements) # consistency check
         return self.__class__(*new_elements, ordering=new_ordering)
             
-    def hadamard(self, keys, **kwargs):
+    def reshuffle(self, keys, **kwargs):
         '''
         Rearrange the Hamiltonians of the elements in the current beamline according to given keys.
-        Further details see lieops 'hadamard' routine.
         
         Returns
         -------
         beamline
-            A beamline of hard_edge_element(s) corresponding to the output of hadamard.
+            A beamline of hard_edge_element(s) according to lieops.core.hadamard.reshuffle2d.
         '''
         hamiltonians = [e.operator.argument for e in self][::-1] # the leftmost operator belongs to the element at the end of the beamline (+)
-        g1, g2, g2_all = hadamard(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
+        g1, g2, g2_all = reshuffle(*hamiltonians, keys=keys, **kwargs) # a higher power may be necessary here ...
         new_elements = [hard_edge_element(lexp(h1), length=1) for h1 in g1] + [hard_edge_element(lexp(h2), length=1) for h2 in g2] # h1 and h2 are considered to be the full arguments of the operators, so we initiate the elements with lexp objects.
         out = self.__class__(*new_elements) # no reverse: The first element in new_elements is acting last, but on lie-polynomials. On points it is acting *first* due to the pull-back property on numbers. So the first element also corresponds to the first element in the new lattice.
-        out._hadamard_trail = g2_all
+        out._reshuffle_trail = g2_all
         return out
     
-    def tpsa(self, *position, order: int, tol=1e-14, **kwargs):
+    def tpsa(self, *position, tol=1e-14, **kwargs):
         '''
         Pass n-jets through the flow functions of the individual elements.
         
@@ -394,25 +391,17 @@ class beamline:
             the one-turn map might be used.
             
         **kwargs
-            Optional keyworded arguments passed to njet.derive class (and therefore the underlying
+            Optional keyworded arguments passed to lieops.core.tools.tpsa (and therefore the underlying
             operators of this beamline).
         '''
-        dim = self.get_dim()
-        n_args = dim*2
-        _tpsa = derive(self, n_args=n_args, order=order)
-        if len(position) == 0:
-            position = (0,)*n_args
-        expansion = _tpsa(*position, mult_prm=True, mult_drv=False, **kwargs) # N.B. the plain jet output is stored in self._tpsa._evaluation. From here one can use ".get_taylor_coefficients" with other parameters -- if desired -- or re-use the jets for further processing.
-        max_power = max([e.hamiltonian.max_power for e in self.elements])
-        taylor_map = [poly(values=e, dim=dim, max_power=max_power) for e in expansion]        
+        _ = kwargs.setdefault('position', position)
+        tpsa_out = tpsa(*self.operators(), **kwargs)
+        taylor_map = tpsa_out['taylor_map']
         if tol > 0: # check if map is symplectic; it is recommended to do this check here to avoid errors in routines which use the Taylor map.
             R = np.array([poly2vec(e.homogeneous_part(1)).tolist() for e in taylor_map])
             check, message = symplecticity(R, tol=tol, warn=kwargs.get('warn', True))
-        self._tpsa = _tpsa
-        self._tpsa_input_parameters = kwargs.copy()
-        self._tpsa_position = position
-        self._tpsa_taylor_map = taylor_map
-        return taylor_map
+        self._tpsa = tpsa_out
+        return tpsa_out
 
     def dragtfinn(self, *position, order: int, **kwargs):
         '''
@@ -449,14 +438,16 @@ class beamline:
             _ = tpsa_input.pop(key, None)
         if hasattr(self, '_tpsa'):
             # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
-            compute_tpsa = not (self._tpsa.order >= tpsa_order) or not all([self._tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
+            tpsa_self = self._tpsa['DA']
+            tpsa_position = self._tpsa['position']
+            compute_tpsa = not (tpsa_self.order >= tpsa_order) or not all([tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
             # Compute the input parameters for TPSA and check if that has changed:
-            compute_tpsa = compute_tpsa or self._tpsa_input_parameters != tpsa_input
+            compute_tpsa = compute_tpsa or self._tpsa['input'] != tpsa_input
         if compute_tpsa:
             _ = self.tpsa(*position, order=tpsa_order, tol=kwargs.get('tol_checks', 0), **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
-        _ = kwargs.setdefault('offset', self._tpsa_position)
-        df = dragtfinn(*self._tpsa_taylor_map, order=order, **kwargs)
-        return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators
+        _ = kwargs.setdefault('offset', self._tpsa['position'])
+        df = dragtfinn(*self._tpsa['taylor_map'], order=order, **kwargs)
+        return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
     
