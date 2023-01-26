@@ -3,8 +3,9 @@ from tqdm import tqdm
 import warnings
 
 from lieops import create_coords, magnus, lexp, poly
-from lieops.core.hadamard import reshuffle2d as reshuffle
 from lieops.core import dragtfinn
+from lieops.core.hadamard import reshuffle2d as reshuffle
+from lieops.core.forest import fnf
 from lieops.core.tools import poly2vec, tpsa
 from lieops.linalg.checks import symplecticity
 
@@ -457,4 +458,23 @@ class beamline:
         _ = kwargs.setdefault('offset', self._tpsa['position'])
         df = dragtfinn(*self._tpsa['taylor_map'], order=order, **kwargs)
         return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
+    
+    def nf(self, *position, order: int, **kwargs):
+        '''
+        Perform a normal form analysis of the beamline, using lieops.core.forest.fnf, see
+        Ref. [1] or the lieops routine for details.
+        
+        Reference(s)
+        ------------
+        [1] E. Forest: "Beam Dynamics - A New Attitude and Framework", harwood academic publishers (1998).
+        '''
+        # I) Check whether it is necessary to perform a TPSA calculation prior to dragtfinn
+        tpsa_order = kwargs.pop('tpsa_order', order)
+        # Determine the TPSA input (by separating the fnf input from the pure flow input) 
+        tpsa_input = kwargs.copy()
+        for key in ['bch_order', 'mode', 'offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
+            _ = tpsa_input.pop(key, None)
+        self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
+        
+        return fnf(*self._tpsa['taylor_map'], order=order, **kwargs)
     
