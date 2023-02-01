@@ -6,6 +6,8 @@ from lieops import create_coords, construct, poly, lexp
 from lieops.solver.splitting import get_scheme_ordering
 from lieops.solver import heyoka
 
+from .tools import energy2beta0
+
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -14,7 +16,7 @@ from lieops.solver import heyoka
 # [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
 
 class hard_edge_element:
-    def __init__(self, *args, length=1, **kwargs):
+    def __init__(self, *args, length=1, warn=True, **kwargs):
         '''
         Class to model the Hamiltonian of a 6D hard-edge element.
         
@@ -27,10 +29,29 @@ class hard_edge_element:
         length: float, optional
             The length of the element.
             
+        energy: float, optional
+            Energy in GeV required to calculate the Hamiltonians.
+            Attention: 
+            By default, the electron mass is used. This can
+            be changed in accphys.tools.energy2beta0. Alternatively,
+            the beta0 keyword can be used for other type of particles.
+
+        beta0: float, optional
+            Relativistic beta required to calculate the Hamiltonians.
+            Will get priority over 'energy' keyword, if provided.
+            
+        warn: boolean, optional
+            Enable/disable warnings when initiating this object.
+            
         **kwargs
             Optional parameters passed to the calculation of the Hamiltonian.
         '''
         self.length = length
+        # Check user input regarding energy
+        if 'energy' in kwargs.keys():
+            _ = kwargs.setdefault('beta0', energy2beta0(kwargs['energy']))
+            
+        # Now calculate & set the Hamiltonian
         if 'beta0' in kwargs.keys():
             self.calcHamiltonian(*args, **kwargs)
         elif 'full_hamiltonian' in kwargs.keys(): # full_hamiltonian preference over Hamiltonian from beta0-calculation.
@@ -41,12 +62,14 @@ class hard_edge_element:
                 self.full_hamiltonian = a
             elif isinstance(a, lexp):
                 self.full_hamiltonian = -a.argument/length
-                self.operator = a
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
         if hasattr(self, 'full_hamiltonian'):
             self.setHamiltonian(**kwargs)
+        else:
+            if warn:
+                warnings.warn("Hamiltonian not set. Provide 'beta0' or 'energy' argument.")
                     
     def calcHamiltonian(self, beta0, sqrtexp: int=2, tol=5e-8, **kwargs):
         '''
@@ -123,7 +146,7 @@ class hard_edge_element:
         self.operator = lexp(-self.hamiltonian*self.length)
         
     def copy(self):
-        result = self.__class__(length=self.length)
+        result = self.__class__(length=self.length, warn=False)
         # copy all the fields
         for field, value in self.__dict__.items():
             if hasattr(value, 'copy'):

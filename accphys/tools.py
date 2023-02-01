@@ -1,4 +1,13 @@
 # Collection of some common routines, used to plot and perform standard tasks
+import numpy as np
+from scipy import constants
+
+def energy2beta0(gev):
+    # Convert energy in GeV to beta0 (for electrons)
+    energy_joule = gev*1e9*constants.electron_volt
+    m = constants.electron_mass
+    c = constants.speed_of_light
+    return np.sqrt(1 - m**2*c**4/energy_joule**2)
 
 def f_identity(*x):
     return x

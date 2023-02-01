@@ -78,7 +78,7 @@ def prepare_df(hdf, position_label='s', length_label='L', position=0, tol=1e-6, 
     return hdf.sort_index().reset_index(drop=True)
 
 
-def to_beamline(hdf, beta0, component_labels, component_indices, position_label='s', length_label='L', **kwargs):
+def to_beamline(hdf, component_labels, component_indices, position_label='s', length_label='L', **kwargs):
     '''
     Construct a beamline from a given lattice.
     
@@ -87,10 +87,7 @@ def to_beamline(hdf, beta0, component_labels, component_indices, position_label=
     hdf: Pandas dataframe
         A Pandas dataframe object containing the position, lengths and field strengths of the individual
         elements in the beamline.
-        
-    beta0: float
-        The relativistic beta0 to be used in defining the Hamiltonians of the beamline elements.
-        
+                
     component_labels
         A list of floats, declaring the names of the columns in which to find the combined-function components.
         
@@ -136,7 +133,7 @@ def to_beamline(hdf, beta0, component_labels, component_indices, position_label=
             components[index] = row.get(label, 0)
         length = row.get(length_label, 0)
         assert group_index == row[group_index_label] # verify that the position in the element list corresponds to the group index given by ngroup.
-        elements.append(cfm(beta0=beta0, components=components, length=length, **kwargs))
+        elements.append(cfm(components=components, length=length, **kwargs))
         group_index += 1
         
     # set the ordering
