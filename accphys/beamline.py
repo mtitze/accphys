@@ -397,9 +397,8 @@ class beamline:
         '''
         _ = kwargs.setdefault('position', position)
         tpsa_out = tpsa(*self.operators(), **kwargs)
-        taylor_map = tpsa_out['taylor_map']
-        if tol > 0: # check if map is symplectic; it is recommended to do this check here to avoid errors in routines which use the Taylor map.
-            R = np.array([poly2vec(e.homogeneous_part(1)).tolist() for e in taylor_map])
+        if tol > 0 and 'taylor_map' in tpsa_out.keys(): # check if Taylor map is symplectic; it is recommended to do this check here to avoid errors in routines which use the Taylor map.
+            R = np.array([poly2vec(e.homogeneous_part(1)).tolist() for e in tpsa_out['taylor_map']])
             check, message = symplecticity(R, tol=tol, warn=kwargs.get('warn', True))
         self._tpsa = tpsa_out
         return tpsa_out
@@ -452,6 +451,7 @@ class beamline:
         tpsa_input = kwargs.copy()
         for key in ['offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
             _ = tpsa_input.pop(key, None)
+        tpsa_input['taylor_map'] = True
         self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
@@ -476,6 +476,7 @@ class beamline:
         tpsa_input = kwargs.copy()
         for key in ['bch_order', 'mode', 'offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
             _ = tpsa_input.pop(key, None)
+        tpsa_input['taylor_map'] = True
         self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
         
         # II) Perform the normal form analysis

@@ -41,8 +41,7 @@ def test_nodipole(cl=5, beta0=0.995, cfmlength=1, **kwargs):
     '''
     components = [0] + list(np.random.rand(cl) + np.random.rand(cl)*1j)
 
-    testele = cfm(components=components, length=cfmlength)
-    testele.calcHamiltonian(beta0=beta0, **kwargs)
+    testele = cfm(components=components, length=cfmlength, beta0=beta0, **kwargs)
     testele.setHamiltonian(0)
     
     gc = testele._prop['g']

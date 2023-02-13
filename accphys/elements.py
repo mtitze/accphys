@@ -50,7 +50,7 @@ class hard_edge_element:
         # Check user input regarding energy
         if 'energy' in kwargs.keys():
             _ = kwargs.setdefault('beta0', energy2beta0(kwargs['energy']))
-        # Set max_power default to be provided to (possible) Lie-operator arguments
+        # Set max_power default to be provided to (possible) Lie-operator arguments (see lieops.core.poly)
         _ = kwargs.setdefault('max_power', 10)
             
         # Now calculate & set the Hamiltonian
