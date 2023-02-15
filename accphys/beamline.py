@@ -134,6 +134,10 @@ class beamline:
     def get_dim(self):
         return self.elements[0].hamiltonian.dim
     
+    def apply(self, *args, **kwargs):
+        for e in self.elements:
+            e.apply(*args, **kwargs) 
+    
     def copy(self):
         '''
         Return a copy of the current beamline.

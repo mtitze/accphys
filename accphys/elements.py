@@ -145,7 +145,17 @@ class hard_edge_element:
         self.setOperator()
         
     def setOperator(self, **kwargs):
+        '''
+        Set the respective Lie-operator representing the current hard-edge model.
+        '''
         self.operator = lexp(-self.hamiltonian*self.length)
+        
+    def apply(self, *args, **kwargs):
+        '''
+        Apply an operator on the current Hamiltonian; re-set the operator accordingly.
+        '''
+        self.hamiltonian = self.hamiltonian.apply(*args, **kwargs)
+        self.setOperator() # re-set the operator
         
     def copy(self):
         result = self.__class__(length=self.length, warn=False)
