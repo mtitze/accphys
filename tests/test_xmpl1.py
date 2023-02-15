@@ -15,7 +15,7 @@ def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     '''
     
     part1 = seq.copy()
-    part1.setHamiltonians(0)
+    part1.setProjection(0)
     
     y1 = yoshida()
     yoshida_scheme = y1.build(0)
@@ -66,7 +66,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     df_inp = {'order': order, 'power': 30, 'pos2': 'left', 'tol': tol, 'comb2': False}
     
     part1 = seq.copy()
-    part1.setHamiltonians(0)
+    part1.setProjection(0)
     
     xieta0 = qp2xieta(q0, p0)
     part1_df = part1.dragtfinn(*xieta0, **df_inp) # Dragt/Finn factorization of the lattice 'part1' around the point xieta0

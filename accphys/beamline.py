@@ -143,12 +143,12 @@ class beamline:
         result.ordering = [e for e in self.ordering]
         return result
         
-    def setHamiltonians(self, *args, **kwargs):
+    def setProjection(self, *args, **kwargs):
         '''
         Project the Hamiltonians of the individual elements to specific dimensions.
         '''
         for e in self.elements:
-            e.setHamiltonian(*args, **kwargs)
+            e.setProjection(*args, **kwargs)
             
     def calcOneTurnMap(self, *args, **kwargs):
         '''
@@ -411,7 +411,6 @@ class beamline:
             stored_order = stored_input['order']            
             stored_position = stored_input['position']
             compute_tpsa = (stored_order < kwargs['order']) or not all([stored_position[k] == position[k] for k in range(self.get_dim()*2)])
-            # remaining input parameters
             remaining_stored_input = {a: b for a, b in stored_input.items() if a != 'order' or a != 'position'}
             compute_tpsa = compute_tpsa or not kwargs.items() <= remaining_stored_input.items()
 
@@ -420,7 +419,7 @@ class beamline:
         
         if tol > 0 and 'taylor_map' in self._tpsa.keys(): 
             # Check if Taylor map is symplectic. It is recommended to do this check here to avoid errors in routines which use the Taylor map.
-            check_results = symcheck(self._tpsa['taylor_map'], tol=tol, warn=False)
+            check_results = symcheck(self._tpsa['taylor_map'], tol=tol, warn=kwargs.get('warn', False))
             if len(check_results) > 0:
                 min_order = min(list(check_results.keys()))
                 error = check_results[min_order]

@@ -68,7 +68,7 @@ class hard_edge_element:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
         if hasattr(self, 'full_hamiltonian'):
-            self.setHamiltonian(**kwargs)
+            self.setProjection(**kwargs)
         else:
             if warn:
                 warnings.warn("Hamiltonian not set. Provide 'beta0' or 'energy' argument.")
@@ -106,7 +106,7 @@ class hard_edge_element:
         self._prop['full'] = hamiltonian
         self._prop['coords'] = x, y, sigma, px, py, psigma
         
-    def setHamiltonian(self, *projection, tol=0, **kwargs):
+    def setProjection(self, *projection, tol=0, **kwargs):
         '''
         Set Hamiltonian by dropping components associated with terms not in given list.
         
@@ -382,7 +382,7 @@ class cfm(hard_edge_element):
             The tilt between the dipole component and the higher-order magnet components of the cfm.
             
         **kwargs
-            Optional arguments passed to self.calcHamiltonian and self.setHamiltonian.
+            Optional arguments passed to self.calcHamiltonian and self.setProjection.
             
         Reference(s)
         ------------
@@ -396,7 +396,7 @@ class cfm(hard_edge_element):
         self.tilt = tilt
         hard_edge_element.__init__(self, *args, **kwargs)
         
-    def setHamiltonian(self, *args, **kwargs):
+    def setProjection(self, *args, **kwargs):
         '''
         Set self.hamiltonian to requested dimension.
         
@@ -415,7 +415,7 @@ class cfm(hard_edge_element):
         if not self._style in supported_styles:
             raise RuntimeError(f"Style '{self._style}' not recognized. Supported styles:\n{supported_styles}")
         self.full_hamiltonian = self._prop[self._style]
-        hard_edge_element.setHamiltonian(self, *args, **kwargs)
+        hard_edge_element.setProjection(self, *args, **kwargs)
     
     def _g(self):
         '''
