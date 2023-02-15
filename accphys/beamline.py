@@ -7,7 +7,6 @@ from lieops.core import dragtfinn
 from lieops.core.hadamard import reshuffle2d as reshuffle
 from lieops.core.forest import fnf
 from lieops.core.tools import poly2vec, tpsa, symcheck
-from lieops.linalg.checks import symplecticity
 
 from .elements import hard_edge_element
 
@@ -372,7 +371,7 @@ class beamline:
         out._reshuffle_trail = g2_all
         return out
     
-    def tpsa(self, *position, tol=1e-14, **kwargs):
+    def tpsa(self, *position, tol=1e-14, force=False, **kwargs):
         '''
         Pass n-jets through the flow functions of the individual elements.
         
@@ -390,41 +389,45 @@ class beamline:
             A tolerance to check (if > 0) if the resulting map is indeed symplectic.
             It is recommended to perform this check to avoid errors in places where
             the one-turn map might be used.
+        
+        force: boolean, optional
+            Bypass memory check and force (re-)calculation.
             
         **kwargs
             Optional keyworded arguments passed to lieops.core.tools.tpsa (and therefore the underlying
             operators of this beamline).
+            
+        Returns
+        -------
+        dict
+            The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
-        _ = kwargs.setdefault('position', position)
-        tpsa_out = tpsa(*self.operators(), **kwargs)
+        kwargs['position'] = position
         
-        if tol > 0 and 'taylor_map' in tpsa_out.keys(): 
+        # Check if calculation of TPSA is required
+        compute_tpsa = True
+        if hasattr(self, '_tpsa') and not force:
+            stored_input = self._tpsa['input']
+            stored_order = stored_input['order']            
+            stored_position = stored_input['position']
+            compute_tpsa = (stored_order < kwargs['order']) or not all([stored_position[k] == position[k] for k in range(self.get_dim()*2)])
+            # remaining input parameters
+            remaining_stored_input = {a: b for a, b in stored_input.items() if a != 'order' or a != 'position'}
+            compute_tpsa = compute_tpsa or not kwargs.items() <= remaining_stored_input.items()
+
+        if compute_tpsa:
+            self._tpsa = tpsa(*self.operators(), **kwargs)
+        
+        if tol > 0 and 'taylor_map' in self._tpsa.keys(): 
             # Check if Taylor map is symplectic. It is recommended to do this check here to avoid errors in routines which use the Taylor map.
-            check_results = symcheck(tpsa_out['taylor_map'], tol=tol, warn=False)
+            check_results = symcheck(self._tpsa['taylor_map'], tol=tol, warn=False)
             if len(check_results) > 0:
                 min_order = min(list(check_results.keys()))
                 error = check_results[min_order]
                 warnings.warn(f'Taylor map not symplectic for order >= {min_order}: {error} (tol: {tol})')
             
-        self._tpsa = tpsa_out
-        return tpsa_out
+        return self._tpsa
     
-    def _memCheck_tpsa(self, *position, order: int, tol_checks=0, **kwargs):
-        '''
-        Check whether it is necessary to perform a TPSA calculation by
-        looking at the position, the order and other input parameters.
-        '''
-        compute_tpsa = True
-        if hasattr(self, '_tpsa'):
-            # Check if the input position and the order agrees with the one already stored. If not, re-do the TPSA calculation.
-            tpsa_order = self._tpsa['DA'].order
-            tpsa_position = self._tpsa['position']
-            compute_tpsa = not (tpsa_order >= order) or not all([tpsa_position[k] == position[k] for k in range(self.get_dim()*2)])
-            # Compute the input parameters for TPSA and check if that has changed:
-            compute_tpsa = compute_tpsa or self._tpsa['input'] != kwargs
-        if compute_tpsa:
-            _ = self.tpsa(*position, order=order, tol=tol_checks, **kwargs)
-
     def dragtfinn(self, *position, order: int, **kwargs):
         '''
         Compute the Dragt/Finn factorization of the current Taylor map (self._tpsa_taylor_map) of the lattice.
@@ -451,17 +454,16 @@ class beamline:
             An object of type self.__class__ corresponding to a beamline in which the elements are given by
             the result of the Factorization. Note that the original lengths of the elements will (and can) not be preserved.
         '''
-        # I) Check whether it is necessary to perform a TPSA calculation prior to dragtfinn
+        # I) Separate TPSA input from dragtfinn input; calculate TPSA (if required)
         tpsa_order = kwargs.pop('tpsa_order', order)
-        # Determine the TPSA input (by separating the dragtfinn input from the pure flow input) 
         tpsa_input = kwargs.copy()
-        for key in ['offset', 'pos2', 'comb2', 'tol', 'force_order']:
+        for key in ['offset', 'pos2', 'comb2', 'force_order']:
             _ = tpsa_input.pop(key, None)
         tpsa_input['taylor_map'] = True
-        self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
+        _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
-        _ = kwargs.setdefault('offset', self._tpsa['position'])
+        _ = kwargs.setdefault('offset', self._tpsa['input']['position'])
         df = dragtfinn(*self._tpsa['taylor_map'], order=order, **kwargs)
         return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
     
@@ -476,14 +478,13 @@ class beamline:
         ------------
         [1] E. Forest: "Beam Dynamics - A New Attitude and Framework", harwood academic publishers (1998).
         '''
-        # I) Check whether it is necessary to perform a TPSA calculation prior to fnf;
-        # determine the TPSA input (by separating the fnf input from the pure flow input) 
+        # I) Separate TPSA input from fnf input; calculate TPSA (if required)
         tpsa_order = kwargs.pop('tpsa_order', order)
         tpsa_input = kwargs.copy()
-        for key in ['mode', 'offset', 'pos2', 'comb2', 'tol', 'force_order']:
+        for key in ['mode', 'offset', 'pos2', 'comb2', 'force_order']:
             _ = tpsa_input.pop(key, None)
         tpsa_input['taylor_map'] = True
-        self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
+        _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
         
         # II) Perform the normal form analysis
         return fnf(*self._tpsa['taylor_map'], order=order, **kwargs)
