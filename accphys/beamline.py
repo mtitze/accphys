@@ -6,7 +6,7 @@ from lieops import create_coords, magnus, lexp, poly
 from lieops.core import dragtfinn
 from lieops.core.hadamard import reshuffle2d as reshuffle
 from lieops.core.forest import fnf
-from lieops.core.tools import poly2vec, tpsa
+from lieops.core.tools import poly2vec, tpsa, symcheck
 from lieops.linalg.checks import symplecticity
 
 from .elements import hard_edge_element
@@ -397,9 +397,15 @@ class beamline:
         '''
         _ = kwargs.setdefault('position', position)
         tpsa_out = tpsa(*self.operators(), **kwargs)
-        if tol > 0 and 'taylor_map' in tpsa_out.keys(): # check if Taylor map is symplectic; it is recommended to do this check here to avoid errors in routines which use the Taylor map.
-            R = np.array([poly2vec(e.homogeneous_part(1)).tolist() for e in tpsa_out['taylor_map']])
-            check, message = symplecticity(R, tol=tol, warn=kwargs.get('warn', True))
+        
+        if tol > 0 and 'taylor_map' in tpsa_out.keys(): 
+            # Check if Taylor map is symplectic. It is recommended to do this check here to avoid errors in routines which use the Taylor map.
+            check_results = symcheck(tpsa_out['taylor_map'], tol=tol, warn=False)
+            if len(check_results) > 0:
+                min_order = min(list(check_results.keys()))
+                error = check_results[min_order]
+                warnings.warn(f'Taylor map not symplectic for order >= {min_order}: {error} (tol: {tol})')
+            
         self._tpsa = tpsa_out
         return tpsa_out
     
@@ -449,7 +455,7 @@ class beamline:
         tpsa_order = kwargs.pop('tpsa_order', order)
         # Determine the TPSA input (by separating the dragtfinn input from the pure flow input) 
         tpsa_input = kwargs.copy()
-        for key in ['offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
+        for key in ['offset', 'pos2', 'comb2', 'tol', 'force_order']:
             _ = tpsa_input.pop(key, None)
         tpsa_input['taylor_map'] = True
         self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
@@ -474,7 +480,7 @@ class beamline:
         # determine the TPSA input (by separating the fnf input from the pure flow input) 
         tpsa_order = kwargs.pop('tpsa_order', order)
         tpsa_input = kwargs.copy()
-        for key in ['bch_order', 'mode', 'offset', 'pos2', 'comb2', 'tol', 'tol_checks', 'force_order']:
+        for key in ['mode', 'offset', 'pos2', 'comb2', 'tol', 'force_order']:
             _ = tpsa_input.pop(key, None)
         tpsa_input['taylor_map'] = True
         self._memCheck_tpsa(*position, order=tpsa_order, **tpsa_input)
