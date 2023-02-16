@@ -406,6 +406,8 @@ class beamline:
         dict
             The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
+        if len(position) == 0:
+            position = (0,)*self.get_dim()*2
         kwargs['position'] = position
         
         # Check if calculation of TPSA is required
