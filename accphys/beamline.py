@@ -118,12 +118,26 @@ class beamline:
             
     def __mul__(self, other):
         assert type(other) == int, 'Only integer values allowed.'
-        result = self.copy()
-        result.ordering = result.ordering*other
+        if other > 0:
+            result = self.copy()
+        elif other < 0:
+            result = self.__class__(*[lexp(-c) for c in self.arguments()][::-1])
+        else: # other == 0; return a beamline consisting of a single element (the identity)
+            return self.__class__(poly(values={}, dim=self.get_dim())) # dim needs to be set in poly here, in order to provide the identity operator.
+        result.ordering = result.ordering*max([1, abs(other)])
         return result
     
     def __rmul__(self, other):
         return self*other
+    
+    def __neg__(self):
+        return self*-1
+    
+    def __sub__(self, other):
+        return self + other*-1
+    
+    def __rsub__(self, other):
+        return other + self*-1
         
     def lengths(self):
         '''
@@ -520,6 +534,6 @@ class beamline:
         # Add some useful keys
         nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))
         nfdict['N'] = beamline(*[lexp(c) for c in nfdict['chi'][::-1]])
-        nfdict['Ni'] = beamline(*[lexp(-c) for c in nfdict['chi']])
+        nfdict['Ni'] = nfdict['N']*-1
         return nfdict
     
