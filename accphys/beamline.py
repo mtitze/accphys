@@ -437,7 +437,7 @@ class beamline:
         if compute_tpsa:
             self._tpsa = tpsa(*self.operators(), **kwargs)
         
-        if tol > 0 and 'taylor_map' in self._tpsa.keys(): 
+        if tol > 0 and 'taylor_map' in self._tpsa.keys() and kwargs.get('warn', True): 
             # Check if Taylor map is symplectic. It is recommended to do this check here to avoid errors in routines which use the Taylor map.
             check_results = symcheck(self._tpsa['taylor_map'], tol=tol, warn=kwargs.get('warn', False))
             if len(check_results) > 0:
@@ -537,3 +537,31 @@ class beamline:
         nfdict['Ni'] = nfdict['N']*-1
         return nfdict
     
+    def optics(self, *args, **kwargs):
+        '''
+        Get the detuning and optics functions (phase space distortion) along the beamline.
+        The resolution depends on the given elements in the beamline.
+        
+        Parameters
+        ----------
+        *args
+            Parameters given to self.normalform
+        
+        **kwargs
+            Keyworded parameters given to self.normalform
+        '''
+        # Input default parameter handling
+        disable_tqdm = kwargs.get('disable_tqdm', False)
+        kwargs['disable_tqdm'] = True # For the inner loops
+        _ = kwargs.setdefault('warn', False)
+        
+        nfdict = self.normalform(*args, **kwargs)
+        Ni = nfdict['Ni']
+        optics = [Ni]
+        for k in tqdm(range(1, len(self)), disable=disable_tqdm):
+            phasor = self[:k] # shifted_beamline = -phasor + self + phasor
+            optics.append((phasor + Ni).dragtfinn(pos2='left', **kwargs))
+        nfdict['driving_terms'] = optics
+        return nfdict
+        
+        
