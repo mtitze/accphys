@@ -64,9 +64,10 @@ def test_normalform2():
     assert diff[2, 2] < 1e-9
     assert diff[3, 3] < 0.15
     
-@pytest.mark.parametrize("xi0, eta0, tol", [(-0.0004, 0.001, 2e-7), 
-                                            (-0.00068, -0.0001*1j + 0.0001, 1e-8)])
-def test_normalform3(xi0, eta0, tol, order=6):
+@pytest.mark.parametrize("xi0, eta0, tol0, xi1, eta1, tol1", 
+                         [(-0.0004, 0.001, 2e-7, 0.00054, -0.00024, 1.5e-6), 
+                          (-0.00068, -0.0001*1j + 0.0001, 1e-8, -0.00068, -0.0001*1j + 0.0001, 1.4e-6)])
+def test_normalform3(xi0, eta0, tol0, xi1, eta1, tol1, order=6):
     '''
     Test tracking through the normal form vs. the normalized map.
     '''
@@ -75,14 +76,17 @@ def test_normalform3(xi0, eta0, tol, order=6):
     
     nfdict1 = part1.normalform(0, 0, order=order, power=30, tol=8e-10)
     
-    nf = beamline(*[lexp(c) for c in nfdict1['chi'][::-1]])
-    nfi = beamline(*[lexp(-c) for c in nfdict1['chi']])
-    
-    ref = nf + part1 + nfi
-    nf_beamline = beamline(lexp(sum(n for n in nfdict1['normalform'])))
-    
-    point1 = ref(xi0, eta0, power=30)
+    nf = nfdict1['N']
+    nfi = nfdict1['Ni']
+    nf_beamline = nfdict1['normalbl']
+
+    test1 = nf + part1 + nfi
+    point1 = test1(xi0, eta0, power=30)
     point2 = nf_beamline(xi0, eta0, power=30)
+    assert all([abs(point1[k] - point2[k]) < tol0 for k in range(2)])
     
-    assert all([abs(point1[k] - point2[k]) < tol for k in range(2)])
+    test2 = nfi + nf_beamline + nf
+    point3 = test2(xi1, eta1, power=30)
+    point4 = part1(xi1, eta1, power=30)
+    assert all([abs(point3[k] - point4[k]) < tol1 for k in range(2)])
     

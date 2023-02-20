@@ -476,8 +476,32 @@ class beamline:
         '''
         Perform a normal form analysis of the beamline, using lieops.core.forest.fnf, see
         Ref. [1] or the lieops routine for details.
-        
-        Note that (currently) only positions at zero are supported.
+                
+        Parameters
+        ----------
+        *position: floats or other objects, optional
+            The position relative to where the initial Dragt/Finn factorization should be taken.
+            See lieops.core.forest.fnf for details.
+            
+        order: The degree of the normal form procedure. For example: A degree 4 will yield normal form
+               terms in the action up and including 2nd order (action**2 = xi**2*eta**2).
+               
+        **kwargs
+            Additional keyworded arguments passed to self.tpsa and lieops.core.forest.fnf
+            
+        Returns
+        -------
+        dict
+            A dictionary containing the output X of lieops.core.forest.fnf, as well as the following items,
+            which has been constructed from X for convenience:
+            normalbl: A beamline object consisting of a single "hard-edge" element, representing
+                        the normalized (and commuting) terms of the current beamline.
+                   N: A beamline object consisting of those terms mapping the current beamline to
+                      its normal form.
+                  Ni: The inverse of N.
+            Hereby it holds:
+            1) normalbl = N + self + Ni   
+            2) self = Ni + normalbl + N
         
         Reference(s)
         ------------
@@ -492,5 +516,10 @@ class beamline:
         _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
         
         # II) Perform the normal form analysis
-        return fnf(*self._tpsa['taylor_map'], order=order, **kwargs)
+        nfdict = fnf(*self._tpsa['taylor_map'], order=order, **kwargs)
+        # Add some useful keys
+        nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))
+        nfdict['N'] = beamline(*[lexp(c) for c in nfdict['chi'][::-1]])
+        nfdict['Ni'] = beamline(*[lexp(-c) for c in nfdict['chi']])
+        return nfdict
     
