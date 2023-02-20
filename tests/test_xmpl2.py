@@ -1,5 +1,6 @@
 import os
 import mpmath as mp
+import pytest
 
 from lieops import lexp
 
@@ -63,4 +64,25 @@ def test_normalform2():
     assert diff[2, 2] < 1e-9
     assert diff[3, 3] < 0.15
     
+@pytest.mark.parametrize("xi0, eta0, tol", [(-0.0004, 0.001, 2e-7), 
+                                            (-0.00068, -0.0001*1j + 0.0001, 1e-8)])
+def test_normalform3(xi0, eta0, tol, order=6):
+    '''
+    Test tracking through the normal form vs. the normalized map.
+    '''
+    part1 = seq.copy()
+    part1.setProjection(0)
+    
+    nfdict1 = part1.normalform(0, 0, order=order, power=30, tol=8e-10)
+    
+    nf = beamline(*[lexp(c) for c in nfdict1['chi'][::-1]])
+    nfi = beamline(*[lexp(-c) for c in nfdict1['chi']])
+    
+    ref = nf + part1 + nfi
+    nf_beamline = beamline(lexp(sum(n for n in nfdict1['normalform'])))
+    
+    point1 = ref(xi0, eta0, power=30)
+    point2 = nf_beamline(xi0, eta0, power=30)
+    
+    assert all([abs(point1[k] - point2[k]) < tol for k in range(2)])
     
