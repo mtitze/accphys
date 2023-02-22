@@ -125,6 +125,7 @@ class hard_edge_element:
             Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
         # consistency checks
+        self._projection = projection
         new_dim = len(projection)
         ham = self.full_hamiltonian
         if new_dim == 0: # default: 6D Hamiltonian
@@ -227,6 +228,7 @@ class hard_edge_element:
         new_elements = [self.copy()]*n_slices
         for e in new_elements:
             e.length = self.length/n_slices
+            e.setOperator()
         return new_elements, [0]*n_slices
     
     def _split_into_alternating_elements(self, n_slices: int=1, combine=True, **kwargs):

@@ -226,7 +226,7 @@ class beamline:
 
     def __call__(self, *point, **kwargs):
         self.out = []
-        for e in self:
+        for e in tqdm(self, disable=kwargs.get('disable_tqdm', True)):
             point = e(*point, **kwargs)
             self.out.append(point)
         return point
@@ -539,7 +539,7 @@ class beamline:
     
     def optics(self, *args, **kwargs):
         '''
-        Get the detuning and optics functions (phase space distortion) along the beamline.
+        Get the detuning and driving terms (map to normal form; phase space distortion) along the beamline.
         The resolution depends on the given elements in the beamline.
         
         Parameters
@@ -550,18 +550,14 @@ class beamline:
         **kwargs
             Keyworded parameters given to self.normalform
         '''
-        # Input default parameter handling
+        # Input parameter handling
         disable_tqdm = kwargs.get('disable_tqdm', False)
-        kwargs['disable_tqdm'] = True # For the inner loops
+        kwargs['disable_tqdm'] = True # Turn off progress bar for the inner loops
         _ = kwargs.setdefault('warn', False)
         
-        nfdict = self.normalform(*args, **kwargs)
-        Ni = nfdict['Ni']
-        optics = [Ni]
+        # Compute the detuning & driving terms
+        dterms = []
         for k in tqdm(range(1, len(self)), disable=disable_tqdm):
-            phasor = self[:k] # shifted_beamline = -phasor + self + phasor
-            optics.append((phasor + Ni).dragtfinn(pos2='left', **kwargs))
-        nfdict['driving_terms'] = optics
-        return nfdict
-        
-        
+            dterms.append((self[k:] + self[:k]).normalform(*args, **kwargs)) # TODO: need to speed up this process...
+        return dterms
+     
