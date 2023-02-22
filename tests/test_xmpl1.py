@@ -3,13 +3,13 @@ import pytest
 import numpy as np
 
 from .common import madx2beamline, qp2xieta
-from lieops.solver.splitting import yoshida
+from lieops.solver.splitting import yoshida, recursive_monomial_split
 from accphys import beamline
 
 lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
 seq = madx2beamline(lattice_file=lattice_file)
 
-def test_splitting(tol1=2e-10):
+def test_splitting(tol1=2e-10, tol2=5e-7):
     '''
     Test various splitting methods on the beamline.
     '''
@@ -17,14 +17,17 @@ def test_splitting(tol1=2e-10):
     part1.setProjection(0, 1)
     
     part2 = part1.split(n_slices=13)
+    part3 = part1.split(n_slices=20, method=recursive_monomial_split, scheme=[0.5, 1, 0.5])
     
     xi0, eta0 = 0.00027, -0.00012
     xi1, eta1 = 0.0006, -0.0004
     
     r1 = part1(xi0, xi1, eta0, eta1, power=10)
     r2 = part2(xi0, xi1, eta0, eta1, power=10)
+    r3 = part3(xi0, xi1, eta0, eta1, power=10)
     
     assert max(abs(np.array(r1) - np.array(r2))) < tol1
+    assert max(abs(np.array(r1) - np.array(r3))) < tol2
         
     
 def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):

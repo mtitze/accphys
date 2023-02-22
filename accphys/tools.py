@@ -1,9 +1,6 @@
 # Collection of some common routines, used to plot and perform standard tasks
 import numpy as np
 from scipy import constants
-from scipy.linalg import expm
-
-from lieops.core.tools import poly2ad
 
 def energy2beta0(gev):
     # Convert energy in GeV to beta0 (for electrons)
