@@ -105,3 +105,9 @@ class knob:
     def _repr_html_(self):
         outstr = self.__str__().replace('\n', '<br>')
         return f'<samp>{outstr}</samp>'
+    
+def create_knobs(dim, **kwargs):
+    '''
+    Create a series of knobs to be used.
+    '''
+    return [knob(dim=dim, terms={tuple(0 if j != k else 1 for j in range(dim)): 1}, **kwargs) for k in range(dim)]
