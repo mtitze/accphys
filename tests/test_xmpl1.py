@@ -9,7 +9,7 @@ from accphys import beamline
 lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
 seq = madx2beamline(lattice_file=lattice_file)
 
-def test_splitting(tol1=2e-10, tol2=5e-7):
+def test_splitting(tol1=2e-10, tol2=5e-7, tol3=5e-15):
     '''
     Test various splitting methods on the beamline.
     '''
@@ -25,10 +25,12 @@ def test_splitting(tol1=2e-10, tol2=5e-7):
     r1 = part1(xi0, xi1, eta0, eta1, power=10)
     r2 = part2(xi0, xi1, eta0, eta1, power=10)
     r3 = part3(xi0, xi1, eta0, eta1, power=10)
+    r4 = part3(xi0, xi1, eta0, eta1, method='channell')
     
     assert max(abs(np.array(r1) - np.array(r2))) < tol1
     assert max(abs(np.array(r1) - np.array(r3))) < tol2
-        
+    assert max(abs(np.array(r1) - np.array(r4))) < tol2
+    assert max(abs(np.array(r3) - np.array(r4))) < tol3
     
 def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     '''
