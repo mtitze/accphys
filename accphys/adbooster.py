@@ -24,7 +24,7 @@ def greedy_nop(pattern, indices):
             solution.append(k)
     return solution + [b]
 
-def find_rno_patterns(sequence, abort=True, **kwargs):
+def find_rno_patterns(sequence, abort=True, min_occurences=2, **kwargs):
     '''
     For a given sequence of integers of length n, find 
     repeating non-overlapping (rno) patterns
@@ -50,15 +50,17 @@ def find_rno_patterns(sequence, abort=True, **kwargs):
     # taken & modified from https://stackoverflow.com/questions/61190161/is-there-a-faster-way-to-find-repeated-patterns-in-a-list
     n = len(sequence)
     result = {}
-    for size in kwargs.get('lengths', range(n - 1, 1, -1)):
+    sizes = kwargs.get('lengths', range(n - 1, 1, -1))
+    size = 0
+    for size in sizes:
         result_size = {}
         windows = [tuple(pattern) for pattern in windowed(sequence, size)]
         counter = Counter(windows)
         for pattern, count in counter.items():
-            if count <= 1:
+            if count < min_occurences:
                 continue
             wsi = [j for j, w in enumerate(windows) if w == pattern] # wsi: pattern start indices
-            if wsi[-1] - wsi[0] < size: # A non-overlapping solution is not possible
+            if len(wsi) > 1 and wsi[-1] - wsi[0] < size: # A non-overlapping solution is not possible
                 continue
             # result[pattern] = wsi # would give all possible solutions of the pattern, including some which may overlap
             solution = greedy_nop(pattern, wsi)
@@ -69,9 +71,10 @@ def find_rno_patterns(sequence, abort=True, **kwargs):
         if abort and len(result) > 0:
             break
         # if a result has been found, abort the current loop.
-    return result
+    return result, size
 
-def get_nested_patterns(rno_patterns, **kwargs):
+
+def _get_nested_patterns(rno_patterns, **kwargs):
     '''
     Obtain a list of nested repeating patterns, starting from the largest to the smallest.
     
@@ -103,6 +106,6 @@ def get_nested_patterns(rno_patterns, **kwargs):
     if level > 2:
         # there has to be one repeating element within heap[c_oi]
         rno_patterns_c = find_rno_patterns(c_oi)
-        return get_nested_patterns(rno_patterns_c, heap=heap)
+        return _get_nested_patterns(rno_patterns_c, heap=heap)
     else:
         return heap

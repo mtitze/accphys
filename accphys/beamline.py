@@ -83,6 +83,9 @@ class beamline:
             raise StopIteration
             
     def index(self, value):
+        '''
+        Return the element number at a given position in the beamline chain (similar as .index for lists)
+        '''
         return self.elements.index(value)
     
     def append_element(self, value):
@@ -435,7 +438,12 @@ class beamline:
             compute_tpsa = compute_tpsa or not kwargs.items() <= remaining_stored_input.items()
 
         if compute_tpsa:
-            self._tpsa = tpsa(*self.operators(), **kwargs)
+            if len(self.ordering) > len(self.elements):
+                ordering = self.ordering
+            else:
+                # all elements are unique, we shall not provide an ordering to TPSA, so it will use its 'default' derive routine
+                ordering = None
+            self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=ordering, **kwargs)
         
         if tol > 0 and 'taylor_map' in self._tpsa.keys() and kwargs.get('warn', True): 
             # Check if Taylor map is symplectic. It is recommended to do this check here to avoid errors in routines which use the Taylor map.
@@ -444,7 +452,6 @@ class beamline:
                 min_order = min(list(check_results.keys()))
                 error = check_results[min_order]
                 warnings.warn(f'Taylor map not symplectic for order >= {min_order}: {error} (tol: {tol})')
-            
         return self._tpsa
     
     def dragtfinn(self, *position, order: int, **kwargs):

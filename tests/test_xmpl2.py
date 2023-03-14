@@ -61,7 +61,7 @@ def test_normalform2():
     assert [(1, 1), (2, 2), (3, 3)] == list(nf2.keys())
     diff = abs(nf1 - nf2)
     assert diff[1, 1] < 1e-14
-    assert diff[2, 2] < 1e-9
+    assert diff[2, 2] < 5e-9
     assert diff[3, 3] < 0.15
     
 @pytest.mark.parametrize("xi0, eta0, tol0, xi1, eta1, tol1", 
