@@ -46,6 +46,9 @@ def find_rno_patterns(sequence, abort=True, min_occurences=2, **kwargs):
     dict
         A dictionary containing the patterns as keys and the indices where these
         patterns occur first as values (in form of lists).
+        
+    size: int
+        The length of the pattern at which the algorithm stopped.
     '''
     # taken & modified from https://stackoverflow.com/questions/61190161/is-there-a-faster-way-to-find-repeated-patterns-in-a-list
     n = len(sequence)
@@ -105,7 +108,7 @@ def _get_nested_patterns(rno_patterns, **kwargs):
     # get the constituents of that chain
     if level > 2:
         # there has to be one repeating element within heap[c_oi]
-        rno_patterns_c = find_rno_patterns(c_oi)
+        rno_patterns_c, _ = find_rno_patterns(c_oi)
         return _get_nested_patterns(rno_patterns_c, heap=heap)
     else:
         return heap

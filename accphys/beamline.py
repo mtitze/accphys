@@ -485,7 +485,7 @@ class beamline:
         tpsa_input = kwargs.copy()
         for key in ['offset', 'pos2', 'comb2', 'force_order']:
             _ = tpsa_input.pop(key, None)
-        tpsa_input['taylor_map'] = True
+        tpsa_input['taylor'] = True
         _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
             
         # II) Perform the Dragt/Finn factorization
@@ -533,7 +533,7 @@ class beamline:
         tpsa_input = kwargs.copy()
         for key in ['mode', 'offset', 'pos2', 'comb2', 'force_order']:
             _ = tpsa_input.pop(key, None)
-        tpsa_input['taylor_map'] = True
+        tpsa_input['taylor'] = True
         _ = self.tpsa(*position, order=tpsa_order, **tpsa_input)
         
         # II) Perform the normal form analysis
