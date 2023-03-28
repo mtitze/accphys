@@ -398,8 +398,8 @@ class beamline:
         '''
         assert 'order' in kwargs.keys()
         compute_tpsa = True
-        if hasattr(self, '_tpsa') and not force:
-            stored_input = self._tpsa['input']
+        if hasattr(self, '_tpsa_input') and not force:
+            stored_input = self._tpsa_input
             stored_order = stored_input['order']            
             stored_position = stored_input['position']
             compute_tpsa = (stored_order < kwargs['order']) or not all([stored_position[k] == position[k] for k in range(self.get_dim()*2)])
@@ -407,7 +407,7 @@ class beamline:
             compute_tpsa = compute_tpsa or not kwargs.items() <= remaining_stored_input.items()
         return compute_tpsa
     
-    def tpsa(self, *position, order: int=1, force=False, **kwargs):
+    def tpsa(self, *position, force=False, use_cderive=True, **kwargs):
         '''
         Pass n-jets through the flow functions of the individual elements.
         
@@ -438,27 +438,32 @@ class beamline:
         dict
             The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
+        assert 'order' in kwargs.keys()        
         if len(position) == 0:
             position = (0,)*self.get_dim()*2
         
-        if self._tpsa_memcheck(*position, force=force, order=order, **kwargs):
-            if len(self.ordering) > len(self.elements):
+        if self._tpsa_memcheck(*position, force=force, **kwargs):
+            if len(self.ordering) > len(self.elements) and use_cderive:
                 ordering = self.ordering
             else:
                 # all elements are unique, we shall not provide an ordering to TPSA, so it will use its 'default' derive routine
                 ordering = None
                 
             kwargs['position'] = position
-            self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=ordering, order=order, **kwargs)
-            self._tpsa_position = position
+            self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=ordering, **kwargs)
+            # store input for later use:
+            tpsa_input = {}
+            tpsa_input['ordering'] = ordering
+            tpsa_input.update(kwargs)
+            self._tpsa_input = tpsa_input
         return self._tpsa
         
     def taylor_map(self, *args, tol=1e-14, **kwargs):
         tpsa_out = self.tpsa(*args, **kwargs) # TPSA inclues a memory check by default.
         
         dim = self.get_dim()
-        max_power = min([e.operator.argument.max_power for e in self.elements])
-        self._taylor_map = taylor_map(*tpsa_out._evaluation, dim=dim, max_power=kwargs.get('max_power', max_power))
+        default_max_power = min([e.operator.argument.max_power for e in self.elements])
+        self._taylor_map = taylor_map(*tpsa_out._evaluation, dim=dim, max_power=kwargs.get('max_power', default_max_power))
         
         if tol > 0 and kwargs.get('warn', True): 
             # Check if Taylor map is symplectic. It is recommended to do this check here to avoid errors in routines which use the Taylor map.
@@ -469,24 +474,14 @@ class beamline:
                 warnings.warn(f'Taylor map not symplectic for order >= {min_order}: {error} (tol: {tol})')
         return self._taylor_map
     
-    def dragtfinn(self, *position, **kwargs):
+    def dragtfinn(self, **kwargs):
         '''
         Compute the Dragt/Finn factorization of the current Taylor map (self._tpsa_taylor_map) of the lattice.
         
         Parameters
         ----------
-        *position: coordinate(s)
-            The point of interest at which the Taylor map should be considered.
-            
-        order: int, optional
-            The maximal order of terms in the Dragt/Finn factorization. This value should preferably
-            take into account the order of the given Taylor-map.
-            
-        tol_checks: float, optional
-            A parameter to perform certain consistency checks.
-            
         **kwargs
-            Arguments passed to dragtfinn routine. In particular one should
+            Arguments passed to lieops.core.dragt.dragtfinn routine. In particular one should
             provide flow calculation parameters to the underlying Lie operators.
             
         Returns
@@ -496,22 +491,18 @@ class beamline:
             the result of the Factorization. Note that the original lengths of the elements will (and can) not be preserved.
         '''
         assert hasattr(self, '_taylor_map'), 'Taylor map calculation required in advance.'
-        _ = kwargs.setdefault('offset', self._tpsa_position)
-        order = kwargs.get('order', self._tpsa.order) # TODO: check default
-        df = dragtfinn(*self._taylor_map, order=order, **kwargs)
+        _ = kwargs.setdefault('offset', self._tpsa_input['position'])
+        _ = kwargs.setdefault('order', self._tpsa_input['order']) # TODO: check default
+        df = dragtfinn(*self._taylor_map, **kwargs)
         return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
     
-    def normalform(self, *position, **kwargs):
+    def normalform(self, **kwargs):
         '''
         Perform a normal form analysis of the beamline, using lieops.core.forest.fnf, see
         Ref. [1] or the lieops routine for details.
                 
         Parameters
         ----------
-        *position: floats or other objects, optional
-            The position relative to where the initial Dragt/Finn factorization should be taken.
-            See lieops.core.forest.fnf for details.
-            
         order: int, optional
             The degree of the normal form procedure. For example: A degree 4 will yield normal form
             terms in the action up and including 2nd order (action**2 = xi**2*eta**2).
@@ -538,8 +529,8 @@ class beamline:
         [1] E. Forest: "Beam Dynamics - A New Attitude and Framework", harwood academic publishers (1998).
         '''
         assert hasattr(self, '_taylor_map'), 'Taylor map calculation required in advance.'
-        order = kwargs.get('order', self._tpsa.order) # TODO: check default
-        nfdict = fnf(*self._taylor_map, order=order, **kwargs)
+        _ = kwargs.setdefault('order', self._tpsa_input['order']) # TODO: check default
+        nfdict = fnf(*self._taylor_map, **kwargs)
         # Add some useful keys
         nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))
         nfdict['N'] = beamline(*[lexp(c) for c in nfdict['chi'][::-1]])

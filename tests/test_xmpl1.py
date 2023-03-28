@@ -87,14 +87,16 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     N.B: Tests currently only working at zero; the TPSA appraoch is too rough for
          most checks. Requires dedicated test.
     '''
-    df_inp = {'order': order, 'power': 30, 'pos2': 'left', 'tol': tol, 'comb2': False}
+    df_inp = {'order': order, 'power': 10, 'pos2': 'left', 'tol': tol, 'comb2': False}
     
     part1 = seq.copy()
     part1.setProjection(0)
     
     xieta0 = qp2xieta(q0, p0)
-    part1_df = part1.dragtfinn(*xieta0, **df_inp) # Dragt/Finn factorization of the lattice 'part1' around the point xieta0
-    part1_df2 = part1_df.dragtfinn(*xieta0, **df_inp) # Repeat Dragt/Finn factorization; it must lead to the same lattice
+    _ = part1.taylor_map(*xieta0, power=30)
+    part1_df = part1.dragtfinn(**df_inp) # Dragt/Finn factorization of the lattice 'part1' around the point xieta0
+    _ = part1_df.taylor_map(*xieta0, power=30)
+    part1_df2 = part1_df.dragtfinn(**df_inp) # Repeat Dragt/Finn factorization; it must lead to the same lattice
     
     tolerances1 = [1e-15, 1e-15, 1e-12, 1e-9, 5e-6, 5e-3]
     assert len(part1_df) == len(part1_df2)
