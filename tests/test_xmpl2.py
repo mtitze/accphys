@@ -19,14 +19,14 @@ def test_normalform1(tol1=5e-15, tol2=5e-11):
     part1 = seq.copy()
     part1.setProjection(0)
     _ = part1.taylor_map(power=30, order=4, tol=1e-8)
-    nfdict1 = part1.normalform(power=30)
+    nfdict1 = part1.normalform(power=30, order=4)
     
     part2 = seq.copy()
     part2.setProjection(0)
     mp.mp.dps = 32
     part2.apply(mp.mpc)
     _ = part2.taylor_map(power=30, order=4, tol=1e-8)
-    nfdict2 = part2.normalform(power=30)
+    nfdict2 = part2.normalform(power=30, order=4)
     
     diff = sum(nfdict1['normalform']) - sum(nfdict2['normalform'])
     assert list(diff.keys()) == [(1, 1), (2, 2)]
@@ -43,7 +43,7 @@ def test_normalform2():
     # Compute the normal form of the given sequence
     order = 6
     _ = part1.taylor_map(0, 0, order=order, power=30, tol=8e-10)
-    nfdict1 = part1.normalform(power=30)
+    nfdict1 = part1.normalform(power=30, order=order - 1)
     nf1 = sum([n.above(1e-3) for n in nfdict1['normalform']])
     
     # The normal form must contain only powers of the actions, here up and including 3rd power (order=6)
@@ -58,7 +58,7 @@ def test_normalform2():
     part1_n = beamline(*[lexp(e) for e in dfn])
     
     _ = part1_n.taylor_map(0, 0, order=order, power=40)
-    nfdict_n = part1_n.normalform(power=40) # power should be sufficently high here.
+    nfdict_n = part1_n.normalform(power=40, order=order - 1) # power should be sufficently high here.
     nf2 = sum([n.above(1e-3) for n in nfdict_n['normalform']])
 
     # check if both nf1 and nf2 are approximately equal
@@ -79,7 +79,7 @@ def test_normalform3(xi0, eta0, tol0, xi1, eta1, tol1, order=6):
     part1.setProjection(0)
     
     _ = part1.taylor_map(0, 0, order=order, power=30, tol=8e-10)
-    nfdict1 = part1.normalform(power=30)
+    nfdict1 = part1.normalform(power=30, order=order)
     
     nf = nfdict1['N']
     nfi = nfdict1['Ni']
