@@ -438,7 +438,7 @@ class beamline:
         dict
             The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
-        assert 'order' in kwargs.keys()        
+        assert 'order' in kwargs.keys()      
         if len(position) == 0:
             position = (0,)*self.get_dim()*2
         
@@ -492,7 +492,7 @@ class beamline:
         '''
         assert hasattr(self, '_taylor_map'), 'Taylor map calculation required in advance.'
         _ = kwargs.setdefault('offset', self._tpsa_input['position'])
-        _ = kwargs.setdefault('order', self._tpsa_input['order']) # TODO: check default
+        _ = kwargs.setdefault('order', self._tpsa_input['order'] - 1) # TODO: check default
         df = dragtfinn(*self._taylor_map, **kwargs)
         return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
     
@@ -529,7 +529,7 @@ class beamline:
         [1] E. Forest: "Beam Dynamics - A New Attitude and Framework", harwood academic publishers (1998).
         '''
         assert hasattr(self, '_taylor_map'), 'Taylor map calculation required in advance.'
-        _ = kwargs.setdefault('order', self._tpsa_input['order']) # TODO: check default
+        _ = kwargs.setdefault('order', self._tpsa_input['order'] - 1) # TODO: check default
         nfdict = fnf(*self._taylor_map, **kwargs)
         # Add some useful keys
         nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))

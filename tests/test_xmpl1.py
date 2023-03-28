@@ -83,36 +83,42 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     2) Performing a magnus-combination after reshuffling the original
        lattice, then expanding the result again using Dragt/Finn factorization.
     3) Compare the results of 1) and 2) in regards of their Hamiltonians and tracking results.
-    
+
     N.B: Tests currently only working at zero; the TPSA appraoch is too rough for
          most checks. Requires dedicated test.
     '''
-    df_inp = {'order': order, 'power': 10, 'pos2': 'left', 'tol': tol, 'comb2': False}
-    
+    max_power = 10
+    taylor_inp = {'order': order, 'power': 30, 'tol': tol} 
+    df_inp = {'order': order - 1, 'power': 10, 'pos2': 'left', 'tol': tol, 'comb2': False}
+    # Order for Taylor map calculation should be 1 more than the requested D/F order;
+    # see also the comments in lieops.lie.tpsa
+
     part1 = seq.copy()
     part1.setProjection(0)
-    
+
     xieta0 = qp2xieta(q0, p0)
-    _ = part1.taylor_map(*xieta0, power=30)
+    _ = part1.taylor_map(*xieta0, **taylor_inp)
     part1_df = part1.dragtfinn(**df_inp) # Dragt/Finn factorization of the lattice 'part1' around the point xieta0
-    _ = part1_df.taylor_map(*xieta0, power=30)
+    _ = part1_df.taylor_map(*xieta0, **taylor_inp)
     part1_df2 = part1_df.dragtfinn(**df_inp) # Repeat Dragt/Finn factorization; it must lead to the same lattice
-    
+
     tolerances1 = [1e-15, 1e-15, 1e-12, 1e-9, 5e-6, 5e-3]
     assert len(part1_df) == len(part1_df2)
     assert all([(part1_df[k].hamiltonian - part1_df2[k].hamiltonian).above(tolerances1[k]) == 0 for k in range(len(tolerances1))])
-    
+
     # Combine the higher-order factors of the Dragt/Finn factorization by Magnus-series.
     # The order of the preceeding Dragt/Finn factorization should be sufficiently high to obtain better accuracy
     bl_mag = part1_df[0:2] + part1_df[2:].magnus(order=magnus_order, max_power=10, time=False)
-    
+
     # Expand bl_mag again:
-    bl_mag_df = bl_mag.dragtfinn(*xieta0, **df_inp)
-    
+    _ = bl_mag.taylor_map(*xieta0, **taylor_inp)
+    bl_mag_df = bl_mag.dragtfinn(**df_inp)
+
     # compare Hamiltonians of the two Dragt/Finn factorizations:
     tolerances2 = [1e-15, 1e-15, 5e-13, 1e-9, 5e-7, 5e-4]
     assert len(part1_df) == len(bl_mag_df)
-    assert all([(part1_df[k].hamiltonian - bl_mag_df[k].hamiltonian).above(tolerances2[k]) == 0 for k in range(len(tolerances2))])
+    assert all([(part1_df[k].hamiltonian - bl_mag_df[k].hamiltonian).above(tolerances2[k]) == 0 for k in range(len(tolerances2))])    # Combine the higher-order factors of the Dragt/Finn factorization by Magnus-series.
+        # The order of the preceeding Dragt/Finn factorization should be sufficiently high to obtain better accuracy
     
     # split the part1 lattice & perform reshuffling using Hadamard's Lemma:
     y1 = yoshida()
@@ -124,15 +130,18 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     # check that the degrees of 'bl_hdm' are arranged as expected; note that
     # in the 1D-case it is possible to combine the 2nd order Hamiltonians into a single element:
     assert (e.hamiltonian.maxdeg() > 2 for e in bl_hdm[:-1]) and bl_hdm[-1].hamiltonian.maxdeg() == 2
-    
+
     # combine the reshuffled lattice by Magnus series:
     bl_mag2 = bl_hdm[:-1].magnus(order=magnus_order, max_power=10, time=False) + bl_hdm[-1]
     bl_mag2.calcOneTurnMap(method='njet', n_slices=10, power=30)
 
     # expand both the reshuffled lattice and the newly lattice bl_mag2:
-    bl_mag2_df = bl_mag2.dragtfinn(*xieta0, **df_inp)
+    _ = bl_mag2.taylor_map(*xieta0, **taylor_inp)
+    bl_mag2_df = bl_mag2.dragtfinn(**df_inp)
+    
+    _ = bl_hdm.taylor_map(*xieta0, **taylor_inp)
     df_inp['tol'] = 2e-4 # relaxing the tolerance appears to not significantly change the next calculation, but may improve a bit the speed.
-    bl_hdm_df = bl_hdm.dragtfinn(*xieta0, **df_inp)
+    bl_hdm_df = bl_hdm.dragtfinn(**df_inp)
     
     tolerances3 = [1e-15, 1e-15, 5e-13, 1e-9, 5e-7, 1.2e-4]
     assert len(bl_mag2_df) == len(bl_hdm_df)
