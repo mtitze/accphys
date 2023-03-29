@@ -407,7 +407,7 @@ class beamline:
             compute_tpsa = compute_tpsa or not kwargs.items() <= remaining_stored_input.items()
         return compute_tpsa
     
-    def tpsa(self, *position, force=False, use_cderive=True, **kwargs):
+    def tpsa(self, *position, force=False, **kwargs):
         '''
         Pass n-jets through the flow functions of the individual elements.
         
@@ -442,20 +442,11 @@ class beamline:
         if len(position) == 0:
             position = (0,)*self.get_dim()*2
         
-        if self._tpsa_memcheck(*position, force=force, **kwargs):
-            if len(self.ordering) > len(self.elements) and use_cderive:
-                ordering = self.ordering
-            else:
-                # all elements are unique, we shall not provide an ordering to TPSA, so it will use its 'default' derive routine
-                ordering = None
-                
+        if self._tpsa_memcheck(*position, force=force, **kwargs):                
             kwargs['position'] = position
-            self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=ordering, **kwargs)
+            self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=self.ordering, **kwargs)
             # store input for later use:
-            tpsa_input = {}
-            tpsa_input['ordering'] = ordering
-            tpsa_input.update(kwargs)
-            self._tpsa_input = tpsa_input
+            self._tpsa_input = kwargs.copy()
         return self._tpsa
         
     def taylor_map(self, *args, tol=1e-14, **kwargs):
