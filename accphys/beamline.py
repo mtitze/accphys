@@ -399,10 +399,17 @@ class beamline:
         assert 'order' in kwargs.keys()
         compute_tpsa = True
         if hasattr(self, '_tpsa_input') and not force:
-            stored_input = self._tpsa_input
-            stored_order = stored_input['order']            
+            stored_input = self._tpsa_input      
+            compute_tpsa = stored_input['order'] < kwargs['order']
+
             stored_position = stored_input['position']
-            compute_tpsa = (stored_order < kwargs['order']) or not all([stored_position[k] == position[k] for k in range(self.get_dim()*2)])
+            if len(stored_position) > 0 and len(position) > 0:
+                compute_tpsa = compute_tpsa or not all([stored_position[k] == position[k] for k in range(self.get_dim()*2)])
+            else:
+                # stored_position is [] or position is [].
+                # This condition may happen if the user requested to return a 'derive' or 'cderive' object in TPSA without
+                # any point evaluation (and so without any position request).
+                compute_tpsa = compute_tpsa or not (len(stored_position) == 0 and len(position) == 0) # if stored_position is None and position is None, then both are 'equal' and so TPSA needs not be calculated by this condition. Otherwise TPSA needs to be (re)calculated.
             remaining_stored_input = {a: b for a, b in stored_input.items() if a != 'order' or a != 'position'}
             compute_tpsa = compute_tpsa or not kwargs.items() <= remaining_stored_input.items()
         return compute_tpsa
@@ -416,7 +423,7 @@ class beamline:
         Parameters
         ----------
         *position: float or array, optional
-            An optional point of reference. By default the position will be the origin.
+            An optional point of reference.
             
         order: int
             The number of derivatives we want to take into account.
@@ -438,19 +445,21 @@ class beamline:
         dict
             The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
-        assert 'order' in kwargs.keys()      
-        if len(position) == 0:
-            position = (0,)*self.get_dim()*2
-        
-        if self._tpsa_memcheck(*position, force=force, **kwargs):                
-            kwargs['position'] = position
+        assert 'order' in kwargs.keys()
+        if self._tpsa_memcheck(*position, force=force, **kwargs):
+            if len(position) > 0:
+                kwargs['position'] = position
             self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=self.ordering, **kwargs)
             # store input for later use:
             self._tpsa_input = kwargs.copy()
+            self._tpsa_input['position'] = position
         return self._tpsa
         
-    def taylor_map(self, *args, tol=1e-14, **kwargs):
-        tpsa_out = self.tpsa(*args, **kwargs) # TPSA inclues a memory check by default.
+    def taylor_map(self, *position, tol=1e-14, **kwargs):
+        if len(position) == 0:
+            position = (0,)*self.get_dim()*2
+        tpsa_out = self.tpsa(*position, **kwargs) # TPSA inclues a memory check by default.
+        assert hasattr(tpsa_out, '_evaluation'), 'TPSA jet-evaluation at specific point required.'
         
         dim = self.get_dim()
         default_max_power = min([e.operator.argument.max_power for e in self.elements])
