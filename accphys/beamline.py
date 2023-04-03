@@ -535,27 +535,62 @@ class beamline:
         nfdict['Ni'] = nfdict['N']*-1
         return nfdict
     
-    def optics(self, *args, **kwargs):
+    def cycle(self, *point, order: int=1, **kwargs):
         '''
-        Get the detuning and driving terms (map to normal form; phase space distortion) along the beamline.
-        The resolution depends on the given elements in the beamline.
+        Invoke a TPSA calculation for the entire chain, assuming cyclic conditions.
+        
+        By default, an njet.extras.cderive object will be returned. This object is also
+        stored in self._cycle.
         
         Parameters
         ----------
-        *args
-            Parameters given to self.normalform
+        *point
+            Point at lattice start at which to evaluate the TPSA along the beamline.
+            
+        order: int, optional
+            The order of the TPSA calculation.
+            
+        **kwargs
+            Keyworded parameters used for the flow calculation of the underlying elements of the beamline.
+        '''
+        _ = self.tpsa(order=order, mode='chain')
+        _ = kwargs.setdefault('outf', 0)
+        self._cycle = self._tpsa.cycle(*point, **kwargs)
+        return self._cycle
+    
+    def optics(self, **kwargs):
+        '''
+        Get the detuning and driving terms (map to normal form; phase space distortion) along the beamline.
+        The resolution depends on the given elements in the beamline.
+                
+        Parameters
+        ----------
+        max_power: int, optional
+            max_power of Taylor map to be used.
+        
+        warn: boolean, optional
+            Display warning in case an internal check went wrong (default: False).
         
         **kwargs
-            Keyworded parameters given to self.normalform
+            Further keyworded parameters given to self.normalform
         '''
         # Input parameter handling
         disable_tqdm = kwargs.get('disable_tqdm', False)
         kwargs['disable_tqdm'] = True # Turn off progress bar for the inner loops
         _ = kwargs.setdefault('warn', False)
         
-        # Compute the detuning & driving terms
-        dterms = []
-        for k in tqdm(range(1, len(self)), disable=disable_tqdm):
-            dterms.append((self[k:] + self[:k]).normalform(*args, **kwargs)) # TODO: need to speed up this process...
-        return dterms
-     
+        assert hasattr(self, '_cycle'), 'TPSA cycle calculation has to be performed in advance.'
+        cc = self._cycle.compose()
+        
+        max_power = kwargs.pop('max_power', min([e.hamiltonian.max_power for e in self.elements]))
+        self._cycle_taylor_map = taylor_map(*cc, max_power=max_power)
+        
+        nfdict = fnf(*self._cycle_taylor_map, **kwargs)
+        # Add some useful keys
+        nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))
+        nfdict['N'] = beamline(*[lexp(c) for c in nfdict['chi'][::-1]])
+        nfdict['Ni'] = nfdict['N']*-1
+        return nfdict
+
+        
+    
