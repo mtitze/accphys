@@ -580,7 +580,10 @@ class beamline:
         _ = kwargs.setdefault('warn', False)
         
         assert hasattr(self, '_cycle'), 'TPSA cycle calculation has to be performed in advance.'
-        cc = self._cycle.compose()
+        if not hasattr(self._cycle, '_evaluation'):
+            cc = self._cycle.compose()
+        else:
+            cc = self._cycle._evaluation
         
         max_power = kwargs.pop('max_power', min([e.hamiltonian.max_power for e in self.elements]))
         self._cycle_taylor_map = taylor_map(*cc, max_power=max_power)
