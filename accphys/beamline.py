@@ -573,6 +573,16 @@ class beamline:
         
         **kwargs
             Further keyworded parameters given to self.normalform
+            
+        Returns
+        -------
+        dict
+            The output of the lieops.core.forest.fnf routine. In addition, three keys are added:
+            'normalbl': A beamline object, representing the normalized beamline (having one hard-edge element.)
+                   'N': A beamline object, representing the chain of normalizing maps, so that 
+                        N + self + N**(-1) = normalbl 
+                        holds.
+                  'Ni': A beamline object, representing the inverse of 'N'. 
         '''
         # Input parameter handling
         disable_tqdm = kwargs.get('disable_tqdm', False)
@@ -580,18 +590,18 @@ class beamline:
         _ = kwargs.setdefault('warn', False)
         
         assert hasattr(self, '_cycle'), 'TPSA cycle calculation has to be performed in advance.'
-        if not hasattr(self._cycle, '_evaluation'):
-            cc = self._cycle.compose()
-        else:
-            cc = self._cycle._evaluation
+        # TODO: check here if self._cycle is of type njet.extras.cderive
+        cc = self._cycle.compose()
         
         max_power = kwargs.pop('max_power', min([e.hamiltonian.max_power for e in self.elements]))
-        self._cycle_taylor_map = taylor_map(*cc, max_power=max_power)
+        self._optics_taylor_map = taylor_map(*cc, max_power=max_power)
         
-        nfdict = fnf(*self._cycle_taylor_map, **kwargs)
+        order = kwargs.setdefault('order', self._tpsa.order) # The order of the normal form procedure should be determined by the order of the Taylor map by default. A warning will be issued in 'fnf' if the requested order > self._tpsa.order
+            
+        nfdict = fnf(*self._optics_taylor_map, **kwargs)
         # Add some useful keys
-        nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))
-        nfdict['N'] = beamline(*[lexp(c) for c in nfdict['chi'][::-1]])
+        nfdict['normalbl'] = self.__class__(lexp(sum(n for n in nfdict['normalform'])))
+        nfdict['N'] = self.__class__(*[lexp(c) for c in nfdict['chi'][::-1]])
         nfdict['Ni'] = nfdict['N']*-1
         return nfdict
 
