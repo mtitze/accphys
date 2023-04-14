@@ -148,6 +148,13 @@ class beamline:
         '''
         return [e.length for e in self]
     
+    def positions(self):
+        '''
+        Return the positions of the individual elements along the beamline.
+        The first element starts at position zero.
+        '''
+        return np.cumsum([0] + [e.length for e in self][:-1])
+    
     def get_dim(self):
         return self.elements[0].hamiltonian.dim
     
@@ -495,6 +502,18 @@ class beamline:
         df = dragtfinn(*self._taylor_map, **kwargs)
         return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
     
+    def _normalform(self, tmap, **kwargs):
+        '''
+        Internal routine used in self.normalform and self.optics; 
+        call lieops.core.forest.fnf with a given Taylor map.
+        '''
+        nfdict = fnf(*tmap, **kwargs)
+        # Add some useful keys
+        nfdict['normalbl'] = self.__class__(lexp(sum(n for n in nfdict['normalform'])))
+        nfdict['N'] = self.__class__(*[lexp(c) for c in nfdict['chi'][::-1]])
+        nfdict['Ni'] = nfdict['N']*-1
+        return nfdict
+    
     def normalform(self, **kwargs):
         '''
         Perform a normal form analysis of the beamline, using lieops.core.forest.fnf, see
@@ -507,7 +526,7 @@ class beamline:
             terms in the action up and including 2nd order (action**2 = xi**2*eta**2).
                
         **kwargs
-            Additional keyworded arguments passed to self.tpsa and lieops.core.forest.fnf
+            Additional keyworded arguments passed to lieops.core.forest.fnf
             
         Returns
         -------
@@ -528,13 +547,8 @@ class beamline:
         [1] E. Forest: "Beam Dynamics - A New Attitude and Framework", harwood academic publishers (1998).
         '''
         assert hasattr(self, '_taylor_map'), 'Taylor map calculation required in advance.'
-        nfdict = fnf(*self._taylor_map, **kwargs)
-        # Add some useful keys
-        nfdict['normalbl'] = beamline(lexp(sum(n for n in nfdict['normalform'])))
-        nfdict['N'] = beamline(*[lexp(c) for c in nfdict['chi'][::-1]])
-        nfdict['Ni'] = nfdict['N']*-1
-        return nfdict
-    
+        return self._normalform(self._taylor_map, **kwargs)
+        
     def cycle(self, *point, order: int=1, **kwargs):
         '''
         Invoke a TPSA calculation for the entire chain, assuming cyclic conditions.
@@ -572,7 +586,7 @@ class beamline:
             Display warning in case an internal check went wrong (default: False).
         
         **kwargs
-            Further keyworded parameters given to self.normalform
+            Further keyworded parameters given to lieops.core.forest.fnf
             
         Returns
         -------
@@ -596,14 +610,7 @@ class beamline:
         max_power = kwargs.pop('max_power', min([e.hamiltonian.max_power for e in self.elements]))
         self._optics_taylor_map = taylor_map(*cc, max_power=max_power)
         
-        order = kwargs.setdefault('order', self._tpsa.order) # The order of the normal form procedure should be determined by the order of the Taylor map by default. A warning will be issued in 'fnf' if the requested order > self._tpsa.order
-            
-        nfdict = fnf(*self._optics_taylor_map, **kwargs)
-        # Add some useful keys
-        nfdict['normalbl'] = self.__class__(lexp(sum(n for n in nfdict['normalform'])))
-        nfdict['N'] = self.__class__(*[lexp(c) for c in nfdict['chi'][::-1]])
-        nfdict['Ni'] = nfdict['N']*-1
-        return nfdict
-
+        _ = kwargs.setdefault('order', self._tpsa.order) # The order of the normal form procedure should be determined by the order of the Taylor map by default. A warning will be issued in 'fnf' if the requested order > self._tpsa.order
         
+        return self._normalform(self._optics_taylor_map, **kwargs)
     
