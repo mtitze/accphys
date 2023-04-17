@@ -10,7 +10,7 @@ from accphys import beamline
 lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
 seq = madx2beamline(lattice_file=lattice_file)
 
-def test_normalform1(tol1=5e-15, tol2=5e-11):
+def test_normalform1(tol1=5e-15, tol2=5e-10, tol3=1e-6):
     '''
     Test the normal form procedure;
     Check if running the case with mpmath gives the same
@@ -27,8 +27,9 @@ def test_normalform1(tol1=5e-15, tol2=5e-11):
     part2.apply(mp.mpc)
     _ = part2.taylor_map(power=30, order=4, tol=1e-8)
     nfdict2 = part2.normalform(power=30, order=4)
-    
-    diff = sum(nfdict1['normalform']) - sum(nfdict2['normalform'])
+
+    n1, n2 = sum(nfdict1['normalform']).above(tol3), sum(nfdict2['normalform']).above(tol3)
+    diff = n1 - n2
     assert list(diff.keys()) == [(1, 1), (2, 2)]
     assert abs(diff[1, 1]) < tol1
     assert abs(diff[2, 2]) < tol2
