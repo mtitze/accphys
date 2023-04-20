@@ -2,6 +2,8 @@ import numpy as np
 from tqdm import tqdm
 import warnings
 
+from njet.common import check_zero
+
 from lieops import create_coords, magnus, lexp, poly
 from lieops.core import dragtfinn
 from lieops.core.hadamard import reshuffle2d as reshuffle
@@ -411,7 +413,11 @@ class beamline:
 
             stored_position = stored_input['position']
             if len(stored_position) > 0 and len(position) > 0:
-                compute_tpsa = compute_tpsa or not all([stored_position[k] == position[k] for k in range(self.get_dim()*2)])
+                try:
+                    compute_tpsa = compute_tpsa or not all([check_zero(stored_position[k] - position[k]) for k in range(self.get_dim()*2)])
+                except:
+                    # We may drop in an exception if stored_position[k] and position[k] have different shapes. In this case: 
+                    compute_tpsa = True
             else:
                 # stored_position is [] or position is [].
                 # This condition may happen if the user requested to return a 'derive' or 'cderive' object in TPSA without
