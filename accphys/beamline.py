@@ -555,7 +555,7 @@ class beamline:
         assert hasattr(self, '_taylor_map'), 'Taylor map calculation required in advance.'
         return self._normalform(self._taylor_map, **kwargs)
         
-    def cycle(self, *point, order: int=1, **kwargs):
+    def cycle(self, *point, order: int, **kwargs):
         '''
         Invoke a TPSA calculation for the entire chain, assuming cyclic conditions.
         
@@ -573,7 +573,7 @@ class beamline:
         **kwargs
             Keyworded parameters used for the flow calculation of the underlying elements of the beamline.
         '''
-        _ = self.tpsa(order=order, mode='chain')
+        _ = self.tpsa(*point, order=order, mode='chain', **kwargs)
         _ = kwargs.setdefault('outf', 0)
         self._cycle = self._tpsa.cycle(*point, **kwargs)
         return self._cycle
@@ -617,6 +617,7 @@ class beamline:
         self._optics_taylor_map = taylor_map(*cc, max_power=max_power)
         
         _ = kwargs.setdefault('order', self._tpsa.order) # The order of the normal form procedure should be determined by the order of the Taylor map by default. A warning will be issued in 'fnf' if the requested order > self._tpsa.order
+        kwargs.update(self._tpsa_input)
         
         return self._normalform(self._optics_taylor_map, **kwargs)
     
