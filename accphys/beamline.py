@@ -31,15 +31,15 @@ class beamline:
         # check input and make it consistent
         elements = list(elements) # for item assignment below
         n_elements = len(elements)
-        assert n_elements > 0
         for k in range(n_elements):
             # A default hard-edge model will be used. This feature is made for convenience usage.
             if isinstance(elements[k], poly) or isinstance(elements[k], lexp):
                 elements[k] = hard_edge_element(elements[k])
             # else: elements[k] = elements[k]
         assert all([hasattr(e, 'hamiltonian') for e in elements])
-        dim0 = elements[0].hamiltonian.dim
-        assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
+        if len(elements) > 0:
+            dim0 = elements[0].hamiltonian.dim
+            assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
         
         if 'lenghts' in kwargs.keys():
             for k in range(n_elements):
@@ -618,6 +618,5 @@ class beamline:
         
         _ = kwargs.setdefault('order', self._tpsa.order) # The order of the normal form procedure should be determined by the order of the Taylor map by default. A warning will be issued in 'fnf' if the requested order > self._tpsa.order
         kwargs.update(self._tpsa_input)
-        
         return self._normalform(self._optics_taylor_map, **kwargs)
     

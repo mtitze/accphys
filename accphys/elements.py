@@ -73,7 +73,7 @@ class hard_edge_element:
             if warn:
                 warnings.warn("Hamiltonian not set. Provide 'beta0' or 'energy' argument.")
                     
-    def calcHamiltonian(self, beta0, sqrtexp: int=2, tol=5e-8, **kwargs):
+    def calcHamiltonian(self, beta0, sqrtexp: int=2, tol=0, **kwargs):
         '''
         Compute the Hamiltonian of a drift.
         For the underlying coordinate system and further details see Refs. [1, 2] below.
