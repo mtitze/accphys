@@ -263,7 +263,7 @@ class beamline:
         return [e.operator for e in self]
     
     def track(self, *xieta, n_reps: int=1, post=lambda *x: x, real=False,
-              output_format='default', **kwargs):
+              output_format='default', record=False, **kwargs):
         '''
         Perform tracking for a given number of repetitions.
 
@@ -284,6 +284,9 @@ class beamline:
             
         real: boolean, optional
             If True, assume the input is given in terms of standard q-p coordinates.
+            
+        record: boolean, optional
+            If True, also store all values from the various elements of the beamline.
             
         output_format: str, optional
             Determine the format of the output as follows:
@@ -331,9 +334,14 @@ class beamline:
             
         point = xieta
         points = []
+        all_out = []
         for k in tqdm(range(n_reps), disable=kwargs.get('disable_tqdm', False)):
             point = self(*point, **kwargs)
             points.append(post_used(*point))
+            if record:
+                all_out.append([post_used(*pt) for pt in self.out])
+            
+        self.out_track = all_out
             
         if output_format in ['default', 'list']:
             return points
