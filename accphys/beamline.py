@@ -9,6 +9,7 @@ from lieops.core import dragtfinn
 from lieops.core.hadamard import reshuffle2d as reshuffle
 from lieops.core.forest import fnf
 from lieops.core.tools import poly2vec, tpsa, symcheck, taylor_map
+from lieops.linalg.matrix import emat
 
 from .elements import hard_edge_element
 
@@ -521,12 +522,27 @@ class beamline:
         Internal routine used in self.normalform and self.optics; 
         call lieops.core.forest.fnf with a given Taylor map.
         '''
-        nfdict = fnf(*tmap, **kwargs)
+        fnfdict = fnf(*tmap, **kwargs)
+        
         # Add some useful keys
-        nfdict['normalbl'] = self.__class__(lexp(sum(n for n in nfdict['normalform'])))
-        nfdict['N'] = self.__class__(*[lexp(c) for c in nfdict['chi'][::-1]])
-        nfdict['Ni'] = nfdict['N']*-1
-        return nfdict
+        fnfdict['normalbl'] = self.__class__(lexp(sum(n for n in fnfdict['normalform'])))
+        fnfdict['N'] = self.__class__(*[lexp(c) for c in fnfdict['chi'][::-1]])
+        fnfdict['Ni'] = fnfdict['N']*-1
+        
+        # The linear optics function(s) alpha, beta, gamma
+        dim = self.dim()
+        dim2 = dim*2
+        S = emat(fnfdict['bnfout']['nfdict']['S'])
+        courant_snyder = (S.transpose().conjugate()@S).matrix.real # 'conjugate' is used here only to remove a possible minus sign in the negative definite case (i.e. if the tune goes in the other direction)
+        csd = {}
+        for k in range(dim):
+            for l in range(dim):
+                ld = l + dim
+                csd[f'alpha{k}{l}'] = courant_snyder[k, ld, ...]
+                csd[f'beta{k}{l}'] = courant_snyder[ld, ld, ...]
+                csd[f'gamma{k}{l}'] = courant_snyder[k, k, ...]
+        fnfdict['courantsnyder'] = csd
+        return fnfdict
     
     def normalform(self, **kwargs):
         '''
