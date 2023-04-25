@@ -128,7 +128,7 @@ class beamline:
         elif other < 0:
             result = self.__class__(*[lexp(-c) for c in self.arguments()][::-1])
         else: # other == 0; return a beamline consisting of a single element (the identity)
-            return self.__class__(poly(values={}, dim=self.get_dim())) # dim needs to be set in poly here, in order to provide the identity operator.
+            return self.__class__(poly(values={}, dim=self.dim())) # dim needs to be set in poly here, in order to provide the identity operator.
         result.ordering = result.ordering*max([1, abs(other)])
         return result
     
@@ -157,7 +157,7 @@ class beamline:
         '''
         return np.cumsum([0] + [e.length for e in self][:-1])
     
-    def get_dim(self):
+    def dim(self):
         return self.elements[0].hamiltonian.dim
     
     def apply(self, *args, **kwargs):
@@ -303,7 +303,7 @@ class beamline:
         # Some input consistency checks
         dim2 = len(xieta)
         assert dim2%2 == 0
-        assert dim2//2 == self.get_dim()
+        assert dim2//2 == self.dim()
         output_formats = ['default', 'list', 'coords', 'transposed'] # supported output formats
         assert output_format in output_formats, f"Output format '{output_format}' not recognized."
     
@@ -422,7 +422,7 @@ class beamline:
             stored_position = stored_input['position']
             if len(stored_position) > 0 and len(position) > 0:
                 try:
-                    compute_tpsa = compute_tpsa or not all([check_zero(stored_position[k] - position[k]) for k in range(self.get_dim()*2)])
+                    compute_tpsa = compute_tpsa or not all([check_zero(stored_position[k] - position[k]) for k in range(self.dim()*2)])
                 except:
                     # We may drop in an exception if stored_position[k] and position[k] have different shapes. In this case: 
                     compute_tpsa = True
@@ -478,11 +478,11 @@ class beamline:
         
     def taylor_map(self, *position, tol=1e-14, **kwargs):
         if len(position) == 0:
-            position = (0,)*self.get_dim()*2
+            position = (0,)*self.dim()*2
         tpsa_out = self.tpsa(*position, **kwargs) # TPSA inclues a memory check by default.
         assert hasattr(tpsa_out, '_evaluation'), 'TPSA jet-evaluation at specific point required.'
         
-        dim = self.get_dim()
+        dim = self.dim()
         default_max_power = min([e.operator.argument.max_power for e in self.elements])
         self._taylor_map = taylor_map(*tpsa_out._evaluation, dim=dim, max_power=kwargs.get('max_power', default_max_power))
         
