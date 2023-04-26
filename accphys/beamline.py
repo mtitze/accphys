@@ -467,7 +467,7 @@ class beamline:
         dict
             The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
-        assert 'order' in kwargs.keys()
+        assert 'order' in kwargs.keys(), "'order' key required for TPSA calculation."
         if self._tpsa_memcheck(*position, force=force, **kwargs):
             if len(position) > 0:
                 kwargs['position'] = position
@@ -518,9 +518,26 @@ class beamline:
         return self.__class__(*[lexp(f) for f in df]) # use lexp objects here so that the elements in df are properly recognized as the full arguments of the operators. Note also that, by construction of the 'dragtfinn' routine, the first element in df needs to be executed first on the coordinates, so it has to stay at the beginning of the beamline.
     
     def _normalform(self, tmap, **kwargs):
-        '''
+        r'''
         Internal routine used in self.normalform and self.optics; 
         call lieops.core.forest.fnf with a given Taylor map.
+        
+        Returns
+        -------
+        dict
+            A dictionary containing the output X of lieops.core.forest.fnf, as well as the following items:
+                 normalbl: A beamline object consisting of a single "hard-edge" element, representing
+                           the normalized (and commuting) terms of the current beamline.
+                        N: A beamline object consisting of those terms mapping the current beamline to
+                           its normal form.
+                       Ni: The inverse of N.
+                           Hereby it holds:
+                           1) normalbl = N + self + Ni
+                           2) self = Ni + normalbl + N
+            courantsnyder: A dictionary containing the Courant/Snyder linear optics functions alpha, beta and gamma.
+                           Hereby a key of the form alpha<ij> maps to the values of the alpha-function relative to the
+                           coordinates z_i and z_{j + dim}, while the beta<i> and gamma<i> keys map to the respective
+                           z_{i + dim}**2 and z_i**2 values.
         '''
         fnfdict = fnf(*tmap, **kwargs)
         
@@ -529,18 +546,34 @@ class beamline:
         fnfdict['N'] = self.__class__(*[lexp(c) for c in fnfdict['chi'][::-1]])
         fnfdict['Ni'] = fnfdict['N']*-1
         
-        # The linear optics function(s) alpha, beta, gamma
+        # Compute the linear optics function(s) alpha, beta, gamma.
+        #
+        # These functions can be derived by noting that the matrix S transforms the ordinary (q, p)-coordinates
+        # to normalized (q, p)-coordinates. Therefore, with z := (q, p), w := S@z and
+        # 
+        #        / gamma   alpha \
+        #  G := |                |
+        #       \ alpha    beta /
+        #
+        # we have:
+        #
+        # w^{tr}@w = z^{tr}@G@z, i.e.
+        # z^{tr}@G@z = z^(tr)(S@z)^(tr)@S@z = z^{tr}@S^{tr}@S@z,
+        #
+        # so that
+        #
+        # G = S^{tr}@S
+        #
+        # From this equation we can deduce the optics functions:
         dim = self.dim()
-        dim2 = dim*2
         S = emat(fnfdict['bnfout']['nfdict']['S'])
-        courant_snyder = (S.transpose().conjugate()@S).matrix.real # 'conjugate' is used here only to remove a possible minus sign in the negative definite case (i.e. if the tune goes in the other direction)
+        courant_snyder = (S.transpose().conjugate()@S).matrix.real # 'conjugate' is used here to remove a possible minus sign in the negative definite case (i.e. if tunes have the opposite sign).
         csd = {}
         for k in range(dim):
+            csd[f'gamma{k}'] = courant_snyder[k, k, ...]
+            csd[f'beta{k}'] = courant_snyder[k + dim, k + dim, ...]
             for l in range(dim):
-                ld = l + dim
-                csd[f'alpha{k}{l}'] = courant_snyder[k, ld, ...]
-                csd[f'beta{k}{l}'] = courant_snyder[ld, ld, ...]
-                csd[f'gamma{k}{l}'] = courant_snyder[k, k, ...]
+                csd[f'alpha{k}{l}'] = courant_snyder[k, l + dim, ...]
         fnfdict['courantsnyder'] = csd
         return fnfdict
     
@@ -561,16 +594,7 @@ class beamline:
         Returns
         -------
         dict
-            A dictionary containing the output X of lieops.core.forest.fnf, as well as the following items,
-            which has been constructed from X for convenience:
-            normalbl: A beamline object consisting of a single "hard-edge" element, representing
-                        the normalized (and commuting) terms of the current beamline.
-                   N: A beamline object consisting of those terms mapping the current beamline to
-                      its normal form.
-                  Ni: The inverse of N.
-            Hereby it holds:
-            1) normalbl = N + self + Ni   
-            2) self = Ni + normalbl + N
+            A dictionary containing the output of self._normalform.
         
         Reference(s)
         ------------
@@ -621,12 +645,7 @@ class beamline:
         Returns
         -------
         dict
-            The output of the lieops.core.forest.fnf routine. In addition, three keys are added:
-            'normalbl': A beamline object, representing the normalized beamline (having one hard-edge element.)
-                   'N': A beamline object, representing the chain of normalizing maps, so that 
-                        N + self + N**(-1) = normalbl 
-                        holds.
-                  'Ni': A beamline object, representing the inverse of 'N'. 
+            A dictionary containing the output of self._normalform.
         '''
         # Input parameter handling
         disable_tqdm = kwargs.get('disable_tqdm', False)
@@ -634,7 +653,7 @@ class beamline:
         _ = kwargs.setdefault('warn', False)
         
         assert hasattr(self, '_cycle'), 'TPSA cycle calculation has to be performed in advance.'
-        # TODO: check here if self._cycle is of type njet.extras.cderive
+        # TODO: may check here if self._cycle is of type njet.extras.cderive
         cc = self._cycle.compose()
         
         max_power = kwargs.pop('max_power', min([e.hamiltonian.max_power for e in self.elements]))
