@@ -142,9 +142,9 @@ def to_beamline(hdf, component_labels, component_indices, position_label='s', le
     return beamline(*elements, ordering=ordering)
 
 
-def madx2dataframe(filename, **kwargs):
+def file2dataframe(filename, **kwargs):
     '''
-    Load MAD-X lattice from file, using LatticeAdaptor module, 
+    Load MAD-X or Elegant lattice from file, using LatticeAdaptor module, 
     and construct a suitable dataframe object. Furthermore, return the
     required input parameters for to_beamline routine.
     
@@ -164,8 +164,13 @@ def madx2dataframe(filename, **kwargs):
     dict
         A dictionary containing MAD-X specific input parameters for the general 'to_beamline' routine.
     '''
+    supported_types = ['madx', 'lte']
+    file_type = filename.split('.')[-1]
+    if file_type not in supported_types:
+        raise NotImplementedError(f"File of type '{file_type}' not supported.")
+    
     la = LatticeAdaptor()
-    la.load_from_file(filename, ftype='madx')
+    la.load_from_file(filename, ftype=file_type)
     raw_df = la.table
     
     # MAD-X specific labels
@@ -174,7 +179,7 @@ def madx2dataframe(filename, **kwargs):
     bend_kx_label = 'K0'
     angle_label = 'ANGLE'
     max_seek_order = 13 # maximal order of multipoles to be considered
-    madx_default_position = 0.5 # MAD-X tends to denote the position of the elements in the center
+    _default_position = 0.5 # The position of the elements relative to its center (0.5)
 
     component_indices = [j for j in range(max_seek_order) if f'K{j}' in raw_df.columns]
     component_labels = [f'K{j}' for j in component_indices]
@@ -213,14 +218,14 @@ def madx2dataframe(filename, **kwargs):
         component_indices = [0]
         
     to_beamline_inp = {'component_labels': component_labels, 'component_indices': component_indices, 'position_label': position_label,
-                    'length_label': length_label, 'position': kwargs.get('position', madx_default_position)}
+                    'length_label': length_label, 'position': kwargs.get('position', _default_position)}
     
     return raw_df, to_beamline_inp
 
 
-def madx2beamline(filename, beta0, **kwargs):
+def file2beamline(filename, beta0, **kwargs):
     '''
-    Load MAD-X lattice from file and construct a beamline object from the data.
+    Load MAD-X or Elegant lattice from file and construct a beamline object from the data.
     
     Parameters
     ----------
@@ -239,6 +244,6 @@ def madx2beamline(filename, beta0, **kwargs):
     beamline
         A beamline object representing the sequence of elements in the given lattice.
     '''
-    raw_df, to_beamline_inp = madx2dataframe(filename=filename, **kwargs)
+    raw_df, to_beamline_inp = file2dataframe(filename=filename, **kwargs)
     to_beamline_inp.update(kwargs)
     return to_beamline(raw_df, beta0=beta0, **to_beamline_inp)

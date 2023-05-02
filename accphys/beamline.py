@@ -467,19 +467,21 @@ class beamline:
         dict
             The output of lieops.core.tools.tpsa; will also be stored in self._tpsa
         '''
+        if len(position) == 0:
+            position = (0,)*self.dim()*2
+
         assert 'order' in kwargs.keys(), "'order' key required for TPSA calculation."
         if self._tpsa_memcheck(*position, force=force, **kwargs):
             if len(position) > 0:
                 kwargs['position'] = position
             self._tpsa = tpsa(*[e.operator for e in self.elements], ordering=self.ordering, **kwargs)
-            # store input for later use:
-            self._tpsa_input = kwargs.copy()
-            self._tpsa_input['position'] = position
+            
+        # store input for later use:
+        self._tpsa_input = kwargs.copy()
+        self._tpsa_input['position'] = position
         return self._tpsa
         
     def taylor_map(self, *position, tol=1e-14, **kwargs):
-        if len(position) == 0:
-            position = (0,)*self.dim()*2
         tpsa_out = self.tpsa(*position, **kwargs) # TPSA inclues a memory check by default.
         assert hasattr(tpsa_out, '_evaluation'), 'TPSA jet-evaluation at specific point required.'
         
@@ -575,6 +577,9 @@ class beamline:
             for l in range(dim):
                 csd[f'alpha{k}{l}'] = courant_snyder[k, l + dim, ...]
         fnfdict['courantsnyder'] = csd
+        
+        # tunes
+        fnfdict['tune'] = np.array(fnfdict['bnfout']['mu'])/2/np.pi
         return fnfdict
     
     def normalform(self, **kwargs):
@@ -623,7 +628,7 @@ class beamline:
         '''
         _ = self.tpsa(*point, order=order, mode='chain', **kwargs)
         _ = kwargs.setdefault('outf', 0)
-        self._cycle = self._tpsa.cycle(*point, **kwargs)
+        self._cycle = self._tpsa.cycle(*self._tpsa_input['position'], **kwargs)
         return self._cycle
     
     def optics(self, **kwargs):
