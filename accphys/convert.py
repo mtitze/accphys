@@ -205,12 +205,12 @@ def file2dataframe(filename, **kwargs):
             raw_df[cl] = raw_df[cl].values + raw_df[cl + 'S'].values*1j
     raw_df = raw_df.loc[raw_df[length_label] > 0][columns_oi]
     
-    # (TO BE CHECKED; TODO)
-    facts = factorials(len(component_labels))
-    j = 0
-    for cl in component_labels:
-        raw_df[cl] = raw_df[cl].values/facts[j]
-        j += 1
+    # (Checked against MAD-X tracking: bend, quad, sextupole, ; factorials required)
+    facts = factorials(max(component_indices))
+    for j in range(len(component_indices)):
+        index = component_indices[j]
+        cl = component_labels[j]
+        raw_df[cl] = raw_df[cl].values/facts[index]
         
     if len(component_labels) == 0: # special case: Only pure drifts exist
         raw_df[bend_kx_label] = [0]*len(raw_df)
