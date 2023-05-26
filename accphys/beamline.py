@@ -552,7 +552,7 @@ class beamline:
         fnfdict['N'] = self.__class__(*[lexp(c) for c in fnfdict['chi'][::-1]])
         fnfdict['Ni'] = fnfdict['N']*-1
         
-        if hasattr(fnfdict, 'bnfout'):
+        if 'bnfout' in fnfdict.keys():
             # Compute the linear optics function(s) alpha, beta, gamma.
             #
             # These functions can be derived by noting that the matrix S transforms the ordinary (q, p)-coordinates
