@@ -543,42 +543,48 @@ class beamline:
         fnfdict = fnf(*tmap, **kwargs)
         
         # Add some useful keys
-        fnfdict['normalbl'] = self.__class__(lexp(sum(n for n in fnfdict['normalform'])))
+        nf = fnfdict['normalform']
+        if len(nf) > 0:
+            fnfdict['normalbl'] = self.__class__(lexp(sum(nf)))
+        else:
+            warnings.warn('Normal form appears to be the identity transformation.')
+            fnfdict['normalbl'] = self*0
         fnfdict['N'] = self.__class__(*[lexp(c) for c in fnfdict['chi'][::-1]])
         fnfdict['Ni'] = fnfdict['N']*-1
         
-        # Compute the linear optics function(s) alpha, beta, gamma.
-        #
-        # These functions can be derived by noting that the matrix S transforms the ordinary (q, p)-coordinates
-        # to normalized (q, p)-coordinates. Therefore, with z := (q, p), w := S@z and
-        # 
-        #        / gamma   alpha \
-        #  G := |                |
-        #       \ alpha    beta /
-        #
-        # we have:
-        #
-        # w^{tr}@w = z^{tr}@G@z, i.e.
-        # z^{tr}@G@z = z^(tr)(S@z)^(tr)@S@z = z^{tr}@S^{tr}@S@z,
-        #
-        # so that
-        #
-        # G = S^{tr}@S
-        #
-        # From this equation we can deduce the optics functions:
-        dim = self.dim()
-        S = emat(fnfdict['bnfout']['nfdict']['S'])
-        courant_snyder = (S.transpose().conjugate()@S).matrix.real # 'conjugate' is used here to remove a possible minus sign in the negative definite case (i.e. if tunes have the opposite sign).
-        csd = {}
-        for k in range(dim):
-            csd[f'gamma{k}'] = courant_snyder[k, k, ...]
-            csd[f'beta{k}'] = courant_snyder[k + dim, k + dim, ...]
-            for l in range(dim):
-                csd[f'alpha{k}{l}'] = courant_snyder[k, l + dim, ...]
-        fnfdict['courantsnyder'] = csd
-        
-        # tunes
-        fnfdict['tune'] = np.array(fnfdict['bnfout']['mu'])/2/np.pi
+        if hasattr(fnfdict, 'bnfout'):
+            # Compute the linear optics function(s) alpha, beta, gamma.
+            #
+            # These functions can be derived by noting that the matrix S transforms the ordinary (q, p)-coordinates
+            # to normalized (q, p)-coordinates. Therefore, with z := (q, p), w := S@z and
+            # 
+            #        / gamma   alpha \
+            #  G := |                |
+            #       \ alpha    beta /
+            #
+            # we have:
+            #
+            # w^{tr}@w = z^{tr}@G@z, i.e.
+            # z^{tr}@G@z = z^(tr)(S@z)^(tr)@S@z = z^{tr}@S^{tr}@S@z,
+            #
+            # so that
+            #
+            # G = S^{tr}@S
+            #
+            # From this equation we can deduce the optics functions:
+            dim = self.dim()
+            S = emat(fnfdict['bnfout']['nfdict']['S'])
+            courant_snyder = (S.transpose().conjugate()@S).matrix.real # 'conjugate' is used here to remove a possible minus sign in the negative definite case (i.e. if tunes have the opposite sign).
+            csd = {}
+            for k in range(dim):
+                csd[f'gamma{k}'] = courant_snyder[k, k, ...]
+                csd[f'beta{k}'] = courant_snyder[k + dim, k + dim, ...]
+                for l in range(dim):
+                    csd[f'alpha{k}{l}'] = courant_snyder[k, l + dim, ...]
+            fnfdict['courantsnyder'] = csd
+
+            # tunes
+            fnfdict['tune'] = np.array(fnfdict['bnfout']['mu'])/2/np.pi
         return fnfdict
     
     def normalform(self, **kwargs):
