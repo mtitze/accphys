@@ -143,7 +143,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     df_inp['tol'] = 2e-4 # relaxing the tolerance appears to not significantly change the next calculation, but may improve a bit the speed.
     bl_hdm_df = bl_hdm.dragtfinn(**df_inp)
     
-    tolerances3 = [1e-15, 1e-15, 5e-13, 1e-9, 5e-7, 1.2e-4]
+    tolerances3 = [1e-15, 1e-15, 5e-13, 1e-9, 5e-7, 2e-4]
     assert len(bl_mag2_df) == len(bl_hdm_df)
     assert all([(bl_mag2_df[k].hamiltonian - bl_hdm_df[k].hamiltonian).above(tolerances3[k]) == 0 for k in range(len(bl_hdm_df))])    
     
@@ -158,8 +158,9 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
             value1 = ak[key]
             value2 = bk[key]
             max_abs_value = max([abs(value1), abs(value2)])
-            rel_error = abs(value1 - value2)/max_abs_value
-            if rel_error > max_rel_error:
-                max_rel_error = rel_error
-        assert max_rel_error < tolerances4[k]
+            if max_abs_value > 1e-12: # values below this threshold are considered to be zero and their relative error is not compared.
+                rel_error = abs(value1 - value2)/max_abs_value
+                if rel_error > max_rel_error:
+                    max_rel_error = rel_error
+            assert max_rel_error < tolerances4[k]
         

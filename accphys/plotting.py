@@ -1,7 +1,7 @@
 from legacycontour import _cntr as cntr
 import numpy as np
 import matplotlib.pyplot as plt
-from lieops.solver import getRealHamiltonFunction
+from lieops.solver.common import getRealHamiltonFunction
 
 def plot_contours(rham, xrange, yrange, levels=[], q=[], p=[], **kwargs):
     '''
