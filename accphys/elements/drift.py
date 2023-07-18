@@ -2,6 +2,8 @@ from lieops import create_coords, construct
 
 from accphys.tools import energy2beta0
 
+from .common import hard_edge_element
+
 def DriftHamiltonian(sqrtexp: int=2, tol_drop=0, **kwargs):
     '''
     Compute the Hamiltonian of a drift.
@@ -30,6 +32,9 @@ def DriftHamiltonian(sqrtexp: int=2, tol_drop=0, **kwargs):
         raise RuntimeError("'energy' or 'beta0' parameter required.")
     else:
         beta0 = kwargs['beta0']
+    # Set max_power default to be provided to (possible) Lie-operator arguments (see lieops.core.poly)
+    _ = kwargs.setdefault('max_power', 10)
+
     
     assert 0 < beta0 and beta0 < 1
     # Compute the CFM drift part
@@ -44,6 +49,7 @@ def DriftHamiltonian(sqrtexp: int=2, tol_drop=0, **kwargs):
     prop['beta0'] = beta0
     prop['sqrtexp'] = sqrtexp
     prop['dE_E'] = psigma*beta0**2
+    prop['drift'] = hamiltonian
     prop['hamiltonian'] = hamiltonian
     prop['drift_sqrt'] = drift_s
     prop['coords'] = x, y, sigma, px, py, psigma

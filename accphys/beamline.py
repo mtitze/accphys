@@ -174,12 +174,11 @@ class beamline:
         result.ordering = [e for e in self.ordering]
         return result
         
-    def setProjection(self, *args, **kwargs):
+    def project(self, *args, **kwargs):
         '''
         Project the Hamiltonians of the individual elements to specific dimensions.
         '''
-        for e in self.elements:
-            e.setProjection(*args, **kwargs)
+        return self.__class__(elements=[e.project(*args, **kwargs) for e in self.elements], ordering=self.ordering)
             
     def calcOneTurnMap(self, *args, **kwargs):
         '''
