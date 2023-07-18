@@ -7,8 +7,9 @@ from lieops import create_coords, construct, poly, lexp
 from lieops.solver.splitting import get_scheme_ordering
 from lieops.solver import heyoka
 
-from .tools import energy2beta0
+from accphys.tools import energy2beta0
 
+from .drift import DriftHamiltonian
 
 # N.B. the length of an element will be used only later, when it comes to calculating the flow.
 
@@ -16,8 +17,9 @@ from .tools import energy2beta0
 # [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
 # [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
 
+
 class hard_edge_element:
-    def __init__(self, *args, length=1, warn=True, **kwargs):
+    def __init__(self, *args, warn=True, **kwargs):
         '''
         Class to model the Hamiltonian of a 6D hard-edge element.
         
@@ -47,7 +49,12 @@ class hard_edge_element:
         **kwargs
             Optional parameters passed to the calculation of the Hamiltonian.
         '''
-        self.length = length
+        for k, v in kwargs.items():
+            setattr(self, str(k), v)
+
+        if hasattr(self, 'length'):
+            del self.length # TMP
+            
         # Check user input regarding energy
         if 'energy' in kwargs.keys():
             _ = kwargs.setdefault('beta0', energy2beta0(kwargs['energy']))
@@ -74,39 +81,6 @@ class hard_edge_element:
             if warn:
                 warnings.warn("Hamiltonian not set. Provide 'beta0' or 'energy' argument.")
                     
-    def calcHamiltonian(self, beta0, sqrtexp: int=2, tol=0, **kwargs):
-        '''
-        Compute the Hamiltonian of a drift.
-        For the underlying coordinate system and further details see Refs. [1, 2] below.
-        In particular, the Hamiltonian is given by Eq. (2.16) in Ref. [2].
-
-        Parameters
-        ----------
-        sqrtexp or power: int, optional
-            Power up to which the square root of the drift should be expanded.
-            
-        tol: float, optional
-            Threshold below which terms in the Hamiltonian are considered to be zero.
-        '''
-        assert 0 < beta0 and beta0 < 1
-        # Compute the CFM drift part
-        x, y, sigma, px, py, psigma = create_coords(3, real=True, **kwargs)
-        one_hateta2 = lambda ps: ((1 + ps*beta0**2)**2 - 1 + beta0**2)/beta0**2 # Eqs. (15c) and (17) in Ref. [1]
-        sqrt = lambda p1, p2, ps: (one_hateta2(ps) - p1**2 - p2**2)**(1/2)
-        _ = kwargs.pop('power', None) # n.b. this will not remove the key in any calling instance
-        drift_s = construct(sqrt, px, py, psigma, power=sqrtexp, **kwargs).above(tol) # expand sqrt around [px, py, psigma] = [0, 0, 0] up to power.
-        hamiltonian = psigma - drift_s
-        hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None).above(tol)
-        self.full_hamiltonian = hamiltonian
-        self._prop = {}
-        self._prop['beta0'] = beta0
-        self._prop['sqrtexp'] = sqrtexp
-        self._prop['dE_E'] = psigma*beta0**2
-        self._prop['drift'] = hamiltonian
-        self._prop['drift_sqrt'] = drift_s
-        self._prop['full'] = hamiltonian
-        self._prop['coords'] = x, y, sigma, px, py, psigma
-        
     def setProjection(self, *projection, tol=0, **kwargs):
         '''
         Set Hamiltonian by dropping components associated with terms not in given list.
