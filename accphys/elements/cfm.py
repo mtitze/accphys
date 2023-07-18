@@ -3,6 +3,10 @@ import numpy as np
 from .common import hard_edge_element
 from .drift import DriftHamiltonian
 
+# Reference(s):
+# [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+# [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
+
 def _g(components, tilt=0):
     '''
     Compute the g-part of the cfm. Code taken in parts from my MAD-X implementation 
@@ -82,7 +86,7 @@ def CFMHamiltonian(components, tilt=0, tol_drop=0, **kwargs):
         So that H = H_drift + H_field.
     '''
     # Compute the Hamiltonian of the drift
-    DH = DriftHamiltonian(self, tol_drop=tol_drop, **kwargs)
+    DH = DriftHamiltonian(tol_drop=tol_drop, **kwargs)
     x, y, sigma, px, py, psigma = DH['coords']
     # Compute the CFM vector potential
     # G = (1 + Kx*x + Ky*y)*A_t near Eq. (2).
@@ -113,7 +117,7 @@ def CFMHamiltonian(components, tilt=0, tol_drop=0, **kwargs):
     H_drift = H_drift.pop((0, 0, 0, 0, 0, 0), None).above(tol_drop)
     H_field = H_field.pop((0, 0, 0, 0, 0, 0), None).above(tol_drop)
 
-    out = {}
+    out = DH
     out['components'] = components
     out['tilt'] = tilt
     out['kx'] = kx
@@ -126,7 +130,6 @@ def CFMHamiltonian(components, tilt=0, tol_drop=0, **kwargs):
     out['dx_G'] = dx_G
     out['dy_G'] = dy_G
     out['g'] = g
-    DH.update(out)
     out['hamiltonian'] = H_full
     return out
     
@@ -245,7 +248,10 @@ class cfm(hard_edge_element):
             raise RuntimeError(f"Style '{self._style}' not recognized. Supported styles:\n{supported_styles}")
         self.hamiltonian = getattr(self, self._style)
 
-    def calcHamiltonian(self):
+    def calcHamiltonian(self, **kwargs):
+        '''
+        Calculate the Hamiltonian of the combined-function magnet.
+        '''
         kwargs = self._input_parameters
         kwargs['components'] = self.components
         kwargs['tilt'] = self.tilt

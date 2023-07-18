@@ -1,6 +1,11 @@
-from .common import hard_edge_element
+import numpy as np
+from njet.functions import cos
+from lieops import construct
 
-class rfc(hard_edge_element):
+from .common import hard_edge_element
+from .drift import DriftHamiltonian
+
+class rfcavity(hard_edge_element):
     def __init__(self, voltage, phase, frequency, beta0, *args, **kwargs):
         '''
         A generic RF cavity.
@@ -27,10 +32,11 @@ class rfc(hard_edge_element):
         tol_drop: float, optional
             Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
-        hard_edge_element.calcHamiltonian(self, tol_drop=tol_drop, **kwargs)
-        x, y, sigma, px, py, psigma = self._prop['coords']
+        DH = DriftHamiltonian(tol_drop=tol_drop, **kwargs)
+        x, y, sigma, px, py, psigma = DH['coords']
         #k = 2*np.pi*self.frequency/constants.speed_of_light # 2.40483/radius # Eq. (3.132) in [1] and earlier: omega = k/c
         #hamiltonian = construct(cos, sigma/beta0*-k + self.phase, **kwargs)*self.voltage
         rf_potential = construct(cos, -sigma/self.beta0*self.frequency + self.phase, power=p, **kwargs)*self.voltage/float(np.pi)
-        hamiltonian = self._prop['full'] - rf_potential
+        hamiltonian = DH['full'] - rf_potential
         self.hamiltonian = hamiltonian.pop((0, 0, 0, 0, 0, 0), None).above(tol_drop) # remove any constant term
+

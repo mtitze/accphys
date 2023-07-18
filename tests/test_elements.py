@@ -1,7 +1,9 @@
 import pytest
 import numpy as np
 
-from accphys.elements import *
+from lieops import create_coords
+
+from accphys.elements import cfm, quadrupole
 
 '''
     Reference(s):
@@ -27,7 +29,7 @@ def test_cfm(kx, ky, g, h, beta0, tol=1e-15):
     - y**4*kx*h/24 - x*kx - y**4*ky**2*g/24 - y**2*ky**2/2 + y**3*ky*g/6 + x*y**3*ky*h/6 \
     - y*ky - x**2*g/2 + y**2*g/2 - x**3*h/6 + y**2*x*h/2 # G = kappa*e/p0*A_t in = (1 + Kx*x + Ky*y)*e/p0*A_t in Thesis
     
-    diff = current_cfm._prop['G'] - kappa_at_thesis
+    diff = current_cfm.G - kappa_at_thesis
     assert max([abs(v) for v in diff.values()]) < tol
     
 def test_nodipole(cl=5, beta0=0.995, cfmlength=1, **kwargs):
@@ -42,9 +44,9 @@ def test_nodipole(cl=5, beta0=0.995, cfmlength=1, **kwargs):
     components = [0] + list(np.random.rand(cl) + np.random.rand(cl)*1j)
 
     testele = cfm(components=components, length=cfmlength, beta0=beta0, **kwargs)
-    testele.setProjection(0)
+    testele = testele.project(0)
     
-    gc = testele._prop['g']
+    gc = testele.g
     assert gc[(0, 0)] == 0
     assert gc[(1, 0)] == 0
     assert gc[(1, 1)] == 0
@@ -64,6 +66,6 @@ def test_quad(gstr, beta0=0.9664):
     quad = quadrupole(gstr, beta0=beta0)
     x, y, z, px, py, pz = create_coords(dim=3, real=True)
     
-    assert (x**2 - y**2)*(-gstr/2) == quad._prop['G']
-    assert -gstr*x == quad._prop['dx_G']
-    assert gstr*y == quad._prop['dy_G']
+    assert (x**2 - y**2)*(-gstr/2) == quad.G
+    assert -gstr*x == quad.dx_G
+    assert gstr*y == quad.dy_G

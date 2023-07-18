@@ -1,3 +1,8 @@
+import warnings
+from lieops import lexp, poly
+
+from lieops.solver.splitting import get_scheme_ordering
+
 class hard_edge_element:
     def __init__(self, *args, warn=True, **kwargs):
         '''
@@ -50,7 +55,7 @@ class hard_edge_element:
                     self.hamiltonian = -a.argument/length
                 else:
                     self.hamiltonian = -a.argument
-             else:
+            else:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
         if not hasattr(self, 'hamiltonian') and warn:
@@ -70,6 +75,7 @@ class hard_edge_element:
             Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
         # consistency checks
+        assert hasattr(self, 'hamiltonian'), 'Hamiltonian required for projection.'
         new_dim = len(projection)
         ham = self.hamiltonian
         if new_dim == 0: # default: 6D Hamiltonian
@@ -106,14 +112,14 @@ class hard_edge_element:
         self.setOperator() # re-set the operator
         
     def copy(self):
-        result = self.__class__(length=self.length, warn=False)
-        # copy all the fields
+        inp = {}
+        # copy all the fields, if a copy functionaliy exists
         for field, value in self.__dict__.items():
             if hasattr(value, 'copy'):
-                setattr(result, field, value.copy())
+                inp[field] = value.copy()
             else:
-                setattr(result, field, value)
-        return result
+                inp[field] = value
+        return self.__class__(warn=False, **inp)
     
     def split(self, n_slices: int=1, return_scheme_ordering=False, **kwargs):
         '''

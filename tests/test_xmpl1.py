@@ -13,8 +13,7 @@ def test_splitting(tol1=2e-10, tol2=5e-7, tol3=5e-15):
     '''
     Test various splitting methods on the beamline.
     '''
-    part1 = seq.copy()
-    part1.setProjection(0, 1)
+    part1 = seq.project(0, 1)
     
     part2 = part1.split(n_slices=13)
     part3 = part1.split(n_slices=20, method=recursive_monomial_split, scheme=[0.5, 1, 0.5])
@@ -38,8 +37,7 @@ def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     various lattice operations.
     '''
     
-    part1 = seq.copy()
-    part1.setProjection(0)
+    part1 = seq.project(0)
     
     y1 = yoshida()
     yoshida_scheme = y1.build(0)
@@ -93,8 +91,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     # Order for Taylor map calculation should be 1 more than the requested D/F order;
     # see also the comments in lieops.lie.tpsa
 
-    part1 = seq.copy()
-    part1.setProjection(0)
+    part1 = seq.project(0)
 
     xieta0 = qp2xieta(q0, p0)
     _ = part1.taylor_map(*xieta0, **taylor_inp)

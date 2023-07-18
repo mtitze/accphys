@@ -16,8 +16,7 @@ def test_normalform1(tol1=5e-15, tol2=5e-10, tol3=1e-6):
     Check if running the case with mpmath gives the same
     orientation.
     '''
-    part1 = seq.copy()
-    part1.setProjection(0)
+    part1 = seq.project(0)
     _ = part1.taylor_map(power=30, order=4, tol=1e-8)
     nfdict1 = part1.normalform(power=30, order=4)
     
@@ -38,8 +37,7 @@ def test_normalform2():
     '''
     Test if normalizing is an invariant operation.
     '''
-    part1 = seq.copy()
-    part1.setProjection(0)
+    part1 = seq.project(0)
     
     # Compute the normal form of the given sequence
     order = 6
@@ -76,8 +74,7 @@ def test_normalform3(xi0, eta0, tol0, xi1, eta1, tol1, order=6):
     '''
     Test tracking through the normal form vs. the normalized map.
     '''
-    part1 = seq.copy()
-    part1.setProjection(0)
+    part1 = seq.project(0)
     
     _ = part1.taylor_map(0, 0, order=order, power=30, tol=8e-10)
     nfdict1 = part1.normalform(power=30, order=order)
