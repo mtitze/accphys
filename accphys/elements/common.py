@@ -1,6 +1,7 @@
 import warnings
-from lieops import lexp, poly
+import numpy as np
 
+from lieops import lexp, poly
 from lieops.solver.splitting import get_scheme_ordering
 
 class hard_edge_element:
@@ -34,13 +35,9 @@ class hard_edge_element:
         **kwargs
             Optional parameters passed to the calculation of the Hamiltonian.
         '''
-        assert len(args) <= 1, 'More than one non-keyworded arguments not understood.'
-        self._input_parameters = kwargs.copy()
+        assert len(args) <= 1, 'More than one non-keyworded arguments provided.'
         for k, v in kwargs.items():
             setattr(self, str(k), v)
-
-        if hasattr(self, 'length'):
-            del self.length # TMP
 
         # User may provide the Hamiltonian or Lie-operator directly:
         if len(args) == 1 and 'hamiltonian' not in kwargs.keys(): 
@@ -59,11 +56,15 @@ class hard_edge_element:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
         if not hasattr(self, 'hamiltonian') and warn:
-            warnings.warn("Hamiltonian not set. Provide 'beta0' or 'energy' argument.")
+            warnings.warn("Hamiltonian not set.")
+
+        if hasattr(self, 'hamiltonian'): # even if self.operator exists, overwrite it
+            self.setOperator()
                     
     def project(self, *projection, tol_drop=0, **kwargs):
         '''
-        Project the current element to a specific phase space subset, by dropping components associated with terms not in given list.
+        Project the current hamiltonian to a specific phase space subset, 
+        by dropping components associated with terms not in given list.
         
         Parameters
         ----------
@@ -77,10 +78,8 @@ class hard_edge_element:
         # consistency checks
         assert hasattr(self, 'hamiltonian'), 'Hamiltonian required for projection.'
         new_dim = len(projection)
+        assert new_dim > 0, 'Subspace not specified.'
         ham = self.hamiltonian
-        if new_dim == 0: # default: 6D Hamiltonian
-            projection = range(ham.dim)
-            new_dim = ham.dim
         assert new_dim <= ham.dim, 'Requested dimension too large.'
         assert max(projection) < ham.dim, 'At least one dimension-index larger than current dimension.'
         projection = list(projection) + [p + ham.dim for p in projection] # the eta-components duplicate the indices.
@@ -92,17 +91,29 @@ class hard_edge_element:
             new_values[tuple([k[p] for p in projection])] = v
         if tol_drop > 0:
             ham = ham.above(tol_drop)
-        return self.__class__(hamiltonian=ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power), **self._input_parameters)
+        inp = self.__dict__ # TODO: perform this operation for every other parameter (move project to lieops.poly class!)
+        inp['hamiltonian'] = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
+        return self.__class__(**inp)
         
     def setOperator(self, **kwargs):
         '''
         Set the respective Lie-operator representing the current hard-edge model.
 
-        Atttention: If a length is provided to the current model, this length will
-        be taken into account when setting the Lie-operator.
+        Atttention: 
+        1) If a length is provided to the current model, this length will
+           be taken into account when setting the Lie-operator:
+           operator = lexp(-hamiltonian*length)
+        2) If the element has length 0, then the length will be ignored and a warning will
+           be issued.
+           operator = lexp(-hamiltonian)
         '''
         length = getattr(self, 'length', 1)
-        self.operator = lexp(-self.hamiltonian*length)
+        if length != 0:
+            self.operator = lexp(-self.hamiltonian*length)
+        else:
+            # lengths of 'thin-lens' elements are ignored.
+            warnings.warn('Thin element of length 0 will have its length ignored when calculating its Lie-operator.')  
+            self.operator = lexp(-self.hamiltonian)
         
     def apply(self, *args, **kwargs):
         '''

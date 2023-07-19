@@ -41,10 +41,6 @@ class beamline:
         if len(elements) > 0:
             dim0 = elements[0].hamiltonian.dim
             assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
-        
-        if 'lenghts' in kwargs.keys():
-            for k in range(n_elements):
-                elements[k].length = kwargs['lengths'][k]
             
         self.elements = [e.copy() for e in elements]
         self.ordering = kwargs.get('ordering', list(range(len(elements))))
@@ -145,18 +141,39 @@ class beamline:
     def __rsub__(self, other):
         return other + self*-1
         
-    def lengths(self):
+    def lengths(self, default=1):
         '''
-        Return the lengths of the individual elements.
+        Return the lengths of the individual elements. 
+        
+        Parameters
+        ----------
+        default: float, optional
+            If an element has no length attribute, its length is set to this value.
+
+        Returns
+        -------
+        list
+            A list of floats, where entry k corresponds to the length of the k-th element.
         '''
-        return [e.length for e in self]
+        return [getattr(e, 'length', default) for e in self]
     
-    def positions(self):
+    def positions(self, default=1):
         '''
         Return the positions of the individual elements along the beamline.
-        The first element starts at position zero.
+        The first element starts at position zero. 
+        
+        Parameters
+        ----------
+        default: float, optional
+            The positions are inferred from the lengths of the individual elements. If an element has no length
+            attribute, its length is set to this value.
+
+        Returns
+        -------
+        ndarray
+            A set of positions, where entry k denotes the start position of the k-th element.            
         '''
-        return np.cumsum([0] + [e.length for e in self][:-1])
+        return np.cumsum([0] + [getattr(e, 'length', default) for e in self][:-1])
     
     def dim(self):
         return self.elements[0].hamiltonian.dim
@@ -178,7 +195,7 @@ class beamline:
         '''
         Project the Hamiltonians of the individual elements to specific dimensions.
         '''
-        return self.__class__(elements=[e.project(*args, **kwargs) for e in self.elements], ordering=self.ordering)
+        return self.__class__(*[e.project(*args, **kwargs) for e in self.elements], ordering=self.ordering)
             
     def calcOneTurnMap(self, *args, **kwargs):
         '''

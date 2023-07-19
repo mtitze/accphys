@@ -20,8 +20,7 @@ def test_normalform1(tol1=5e-15, tol2=5e-10, tol3=1e-6):
     _ = part1.taylor_map(power=30, order=4, tol=1e-8)
     nfdict1 = part1.normalform(power=30, order=4)
     
-    part2 = seq.copy()
-    part2.setProjection(0)
+    part2 = seq.project(0)
     mp.mp.dps = 32
     part2.apply(mp.mpc)
     _ = part2.taylor_map(power=30, order=4, tol=1e-8)

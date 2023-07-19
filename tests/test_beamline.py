@@ -7,7 +7,8 @@ from lieops.solver.splitting import yoshida
 from accphys import beamline
 from accphys.elements import hard_edge_element
 
-@pytest.mark.parametrize("x0, y0, px0, py0, gstr, length", [(3, 0.33, 1, 0.11, 1, 1.337)])
+@pytest.mark.parametrize("x0, y0, px0, py0, gstr, length", [(3, 0.33, 1, 0.11, 0.94, 1.337), 
+                                                            (3, 0.33, 1, 0.11, -0.878, 1.337)])
 def test_quad_ref(x0, y0, px0, py0, gstr, length, tol=1e-14):
     '''
     Test final flow coordinates vs. expectation for a single normally aligned thick quadrupole.

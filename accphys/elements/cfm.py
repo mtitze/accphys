@@ -252,7 +252,7 @@ class cfm(hard_edge_element):
         '''
         Calculate the Hamiltonian of the combined-function magnet.
         '''
-        kwargs = self._input_parameters
+        kwargs = self.__dict__
         kwargs['components'] = self.components
         kwargs['tilt'] = self.tilt
         cfmh = CFMHamiltonian(**kwargs)
