@@ -2,10 +2,15 @@
 import numpy as np
 from scipy import constants
 
-def energy2beta0(gev):
+def energy2beta0(gev, particle_type='electron'):
     # Convert energy in GeV to beta0 (for electrons)
     energy_joule = gev*1e9*constants.electron_volt
-    m = constants.electron_mass
+    if particle_type == 'electron':
+        m = constants.electron_mass
+    elif particle_type == 'proton':
+        m = constants.proton_mass
+    else:
+        raise RuntimeError('Particle type not understood.')
     c = constants.speed_of_light
     return np.sqrt(1 - m**2*c**4/energy_joule**2)
 

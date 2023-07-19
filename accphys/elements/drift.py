@@ -27,7 +27,7 @@ def DriftHamiltonian(sqrtexp: int=2, tol_drop=0, **kwargs):
     '''
     # User input handling
     if 'energy' in kwargs.keys():
-        beta0 = energy2beta0(kwargs['energy'])
+        beta0 = energy2beta0(kwargs['energy'], particle_type=kwargs.get('particle_type', 'electron'))
     elif not 'beta0' in kwargs.keys():
         raise RuntimeError("'energy' or 'beta0' parameter required.")
     else:

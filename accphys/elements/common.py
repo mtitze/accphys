@@ -1,5 +1,6 @@
 import warnings
 import numpy as np
+from copy import deepcopy
 
 from lieops import lexp, poly
 from lieops.solver.splitting import get_scheme_ordering
@@ -76,24 +77,16 @@ class hard_edge_element:
             Threshold below which terms in the Hamiltonian are considered to be zero.
         '''
         # consistency checks
-        assert hasattr(self, 'hamiltonian'), 'Hamiltonian required for projection.'
-        new_dim = len(projection)
-        assert new_dim > 0, 'Subspace not specified.'
-        ham = self.hamiltonian
-        assert new_dim <= ham.dim, 'Requested dimension too large.'
-        assert max(projection) < ham.dim, 'At least one dimension-index larger than current dimension.'
-        projection = list(projection) + [p + ham.dim for p in projection] # the eta-components duplicate the indices.
-        complement = [k for k in range(2*ham.dim) if not k in projection]
-        new_values = {}
-        for k, v in ham.items():
-            if any([k[p] != 0 for p in complement]): # only keep those coefficients which do not couple to other directions
-                continue
-            new_values[tuple([k[p] for p in projection])] = v
-        if tol_drop > 0:
-            ham = ham.above(tol_drop)
-        inp = self.__dict__ # TODO: perform this operation for every other parameter (move project to lieops.poly class!)
-        inp['hamiltonian'] = ham.__class__(values=new_values, dim=new_dim, max_power=ham.max_power)
-        return self.__class__(**inp)
+        new_fields = {}
+        for k, v in self.__dict__.items():
+            if isinstance(v, poly):
+                nv = v.project(*projection)
+                if tol_drop > 0:
+                    nv = nv.above(tol_drop)
+                new_fields[k] = nv
+            else:
+                new_fields[k] = deepcopy(v)
+        return self.__class__(warn=False, **new_fields)
         
     def setOperator(self, **kwargs):
         '''

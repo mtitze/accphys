@@ -282,7 +282,8 @@ class multipole(cfm):
             # Eq. (1.8) in Ref. [2], using y=0 here. The c_n are just the components of the cfm.
             # Therefore:
             components[n - 1] = fs
-        cfm.__init__(self, components=components, *args, **kwargs)
+        kwargs['components'] = components
+        cfm.__init__(self, *args, **kwargs)
 
         
 class drift(multipole):

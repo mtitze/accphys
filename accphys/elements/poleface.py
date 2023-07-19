@@ -27,8 +27,7 @@ class polefaceRM(hard_edge_element):
         self.rho = rho
         self.phi = phi
         self._htp = np.tan(phi)/self.rho
-        
-        self.length = kwargs.get('length', 1) # for technical reasons (TODO: overwork parameters)
+        self.length = 0
         
         self.calcHamiltonian()
     
@@ -41,7 +40,7 @@ class polefaceRM(hard_edge_element):
                 [0, -self._htp, 0, 0, 1, 0],
                 [0, 0, 0, 0, 0, 1]]
                 
-        h0 = logm(np.array(pfrm).transpose()) # The reason why the transpose is required is explained in lieops.core.dragt.py
+        h0 = logm(np.array(pfrm).transpose()) # The reason why the transpose has been used is explained in lieops.core.dragt.py
         self.hamiltonian = ad2poly(h0)
         
         
