@@ -1,6 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 import warnings
+from copy import deepcopy
 
 from njet.common import check_zero
 
@@ -42,7 +43,7 @@ class beamline:
             dim0 = elements[0].hamiltonian.dim
             assert all([e.hamiltonian.dim == dim0 for e in elements]), 'Dimensions of the individual Hamiltonians differ.'
             
-        self.elements = [e.copy() for e in elements]
+        self.elements = [deepcopy(e) for e in elements] # deepcopy required here to also copy any possible existing flow function(s) attached to operators
         self.ordering = kwargs.get('ordering', list(range(len(elements))))
         
     def __len__(self):
@@ -186,10 +187,7 @@ class beamline:
         '''
         Return a copy of the current beamline.
         '''
-        assert all([hasattr(e, 'copy') for e in self.elements])
-        result = self.__class__(*[e.copy() for e in self.elements])
-        result.ordering = [e for e in self.ordering]
-        return result
+        return deepcopy(self)
         
     def project(self, *args, **kwargs):
         '''
