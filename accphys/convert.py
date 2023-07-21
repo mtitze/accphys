@@ -196,9 +196,8 @@ def file2dataframe(filename, **kwargs):
 
     # drop elements with zero length and uneccesary columns;
     # N.B. E1 and E2 denote rotation angles of the pole-faces. If they are non-zero,
-    # they are usually half the bend angle (in the rectangular case). We will ignore rectangular
-    # bends for the time being and use s-bends here.
-    columns_oi = [position_label, length_label] + component_labels
+    # they are usually half the bend angle (in the rectangular case).
+    columns_oi = [position_label, length_label] + component_labels + ['E1', 'E2']
     # if they exist, add skew-values to the components; TODO: check & verify this numerically
     for cl in component_labels:
         if cl + 'S' in raw_df.columns:
