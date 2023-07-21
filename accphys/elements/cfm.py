@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
 
 from .common import hard_edge_element
 from .drift import DriftHamiltonian
@@ -131,6 +132,17 @@ def CFMHamiltonian(components, tilt=0, tol_drop=0, **kwargs):
     out['dy_G'] = dy_G
     out['g'] = g
     out['hamiltonian'] = H_full
+    
+    if kx != 0:
+        out['rhox'] = 1/kx # kx = 1/r
+    else:
+        out['rhox'] = float(np.inf)
+        
+    if ky != 0:
+        out['rhoy'] = 1/ky
+    else:
+        out['rhoy'] = float(np.inf)
+    
     return out
     
 def _map(CFMH, x, y, sigma, px, py, psigma, ds):
@@ -182,7 +194,7 @@ def _map(CFMH, x, y, sigma, px, py, psigma, ds):
 
 
 class cfm(hard_edge_element):
-    def __init__(self, components=[0], tilt=0, _addzero=True, **kwargs):
+    def __init__(self, components=[0], tilt=0, _addzero=True, warn=True, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -226,9 +238,18 @@ class cfm(hard_edge_element):
             components = [components[0], 0] # see explanation in the docs above (components, part 2)
         self.components = components
         self.tilt = tilt
-        hard_edge_element.__init__(self, **kwargs)
+        hard_edge_element.__init__(self, warn=False, **kwargs)
         if not hasattr(self, 'hamiltonian'):
             self.calcHamiltonian(**kwargs)
+
+        # also compute the overal bend angles, if a length has been provided:
+        if hasattr(self, 'length'):
+            self.phix = self.length*self.kx # r*phi = L; kx = 1/r
+            self.phiy = self.length*self.ky
+        else:
+            if warn:
+                warnings.warn('Length of dipole not specified. Bend angle can not be determined.')
+
 
     def setStyle(self, *args, **kwargs):
         '''
@@ -290,11 +311,9 @@ class drift(multipole):
     def __init__(self, *args, **kwargs):
         multipole.__init__(self, *args, n=0, **kwargs)
         
-        
 class dipole(multipole):
     def __init__(self, *args, **kwargs):
         multipole.__init__(self, *args, n=1, **kwargs)
-
         
 class quadrupole(multipole):
     def __init__(self, *args, **kwargs):

@@ -41,7 +41,7 @@ class hard_edge_element:
             setattr(self, str(k), v)
 
         # User may provide the Hamiltonian or Lie-operator directly:
-        if len(args) == 1 and 'hamiltonian' not in kwargs.keys(): 
+        if len(args) == 1 and 'hamiltonian' not in kwargs.keys() and not hasattr(self, 'hamiltonian'): 
             a = args[0]
             if isinstance(a, poly):
                 self.hamiltonian = a
@@ -105,7 +105,7 @@ class hard_edge_element:
             self.operator = lexp(-self.hamiltonian*length)
         else:
             # lengths of 'thin-lens' elements are ignored.
-            warnings.warn('Thin element of length 0 will have its length ignored when calculating its Lie-operator.')  
+            warnings.warn('Lie-operator of thin element set to "lexp(-hamiltonian)".')  
             self.operator = lexp(-self.hamiltonian)
         
     def apply(self, *args, **kwargs):

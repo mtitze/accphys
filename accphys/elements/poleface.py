@@ -1,4 +1,7 @@
+import numpy as np
 from scipy.linalg import logm
+
+from lieops.core.tools import ad2poly
 
 from .common import hard_edge_element
 
