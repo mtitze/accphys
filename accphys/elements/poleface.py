@@ -25,16 +25,15 @@ class polefaceRM(hard_edge_element):
         [1] K. Brown: "Optics and Lattices" in: A. W. Chao and M. Tigner: "Handbook of Accelerator Physics
             and Engineering", 3rd edition, World Scientific 1998. 
         '''
-        assert rho > 0
+        assert rho != 0
         
         self.rho = rho
         self.phi = phi
         self._htp = np.tan(phi)/self.rho
         self.length = 0
-        
-        self.calcHamiltonian()
+        hard_edge_element.__init__(self, **kwargs)
     
-    def calcHamiltonian(self):
+    def calcHamiltonian(self, **kwargs):
         
         pfrm = [[1, 0, 0, 0, 0, 0],
                 [0, 1, 0, 0, 0, 0],

@@ -56,6 +56,9 @@ class hard_edge_element:
             else:
                 raise RuntimeError(f'Argument {a} not recognized.')
 
+        if not hasattr(self, 'hamiltonian') and hasattr(self, 'calcHamiltonian'):
+            self.calcHamiltonian(**kwargs)
+
         if not hasattr(self, 'hamiltonian') and warn:
             warnings.warn("Hamiltonian not set.")
 

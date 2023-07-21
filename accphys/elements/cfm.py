@@ -239,8 +239,6 @@ class cfm(hard_edge_element):
         self.components = components
         self.tilt = tilt
         hard_edge_element.__init__(self, warn=False, **kwargs)
-        if not hasattr(self, 'hamiltonian'):
-            self.calcHamiltonian(**kwargs)
 
         # also compute the overal bend angles, if a length has been provided:
         if hasattr(self, 'length'):

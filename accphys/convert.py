@@ -1,5 +1,5 @@
 from .beamline import beamline
-from .elements import cfm
+from .elements import cfm, polefaceRM
 
 from tqdm import tqdm
 
@@ -133,11 +133,22 @@ def to_beamline(hdf, component_labels, component_indices, position_label='s', le
             components[index] = row.get(label, 0)
         length = row.get(length_label, 0)
         assert group_index == row[group_index_label] # verify that the position in the element list corresponds to the group index given by ngroup.
-        elements.append(cfm(components=components, length=length, **kwargs))
+
+        element = cfm(components=components, length=length, **kwargs)
+        # special case: check for rbends etc. (TODO: improve this code, as it depends on the labels E1 and E2)
+        # we add sector rotation matrices if required.
+        #e1, e2 = row.get('E1', 0), row.get('E2', 0)
+        #if e1 != 0:
+        #    elements.append(polefaceRM(rho=element.rhox, phi=e1, length=0))
+
+        elements.append(element)
+
+        #if e2 != 0:
+        #    elements.append(polefaceRM(rho=element.rhox, phi=e2, length=0))
         group_index += 1
         
     # set the ordering
-    ordering = list(hdf[group_index_label])
+    ordering = list(hdf[group_index_label])  # ONGOING: need to separate the edges in advance before determining the unique groups of elements...
             
     return beamline(*elements, ordering=ordering)
 
