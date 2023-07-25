@@ -1,7 +1,7 @@
 from scipy import constants
 import numpy as np
 
-from accphys import file2dataframe, to_beamline
+from accphys.io import from_madx
 
 def energy2beta0(gev):
     # Convert energy in GeV to beta0 (for electrons)
@@ -12,9 +12,7 @@ def energy2beta0(gev):
 
 def madx2beamline(lattice_file, gev=2.5, max_power=10):
     beta0 = energy2beta0(gev)
-    raw_df, inp = file2dataframe(lattice_file)
-    seq = to_beamline(raw_df, beta0=beta0, max_power=max_power, **inp)
-    return seq
+    return from_madx(lattice_file, beta0=beta0, max_power=max_power)
 
 def qp2xieta(q, p):
     sqrt2 = float(np.sqrt(2))
