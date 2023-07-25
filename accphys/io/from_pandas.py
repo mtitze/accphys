@@ -72,6 +72,7 @@ def _fill_gaps(hdf, position_label='s', length_label='L', position=0, tol=1e-6, 
             hdf.loc[k + 0.5] = new_row # insert a new row in between k and k + 1
             
     return hdf.sort_index().reset_index(drop=True)
+    
 
 
 def from_pandas(hdf, component_labels, component_indices, position_label='s', length_label='L', **kwargs):

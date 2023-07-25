@@ -37,6 +37,7 @@ class hard_edge_element:
             Optional parameters passed to the calculation of the Hamiltonian.
         '''
         assert len(args) <= 1, 'More than one non-keyworded arguments provided.'
+        # Set user-given data
         for k, v in kwargs.items():
             setattr(self, str(k), v)
 
