@@ -19,7 +19,7 @@ def test_cfm(kx, ky, g, h, beta0, tol=1e-15):
     Test a CFM element against Eq. (2.57) in Ref. [1].    
     '''
     # Note that we have to insert h/2 to compare the result with those from the thesis
-    current_cfm = cfm(beta0=beta0, components=[kx - ky*1j, g, h/2, 0])
+    current_cfm = cfm(beta0=beta0, components=[kx - ky*1j, g, h/2])
     
     # Comparison of Eq. (2.57) in Thesis
     x, y, sigma, px, py, psigma = create_coords(3, real=True)
