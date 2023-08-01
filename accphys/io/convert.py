@@ -44,7 +44,7 @@ def Sequence2Elements(latticeElements, tol=0):
 
     return [ee for e in chain for ee in e] # flatten
 
-def combine_adjacent_elements(elist):
+def combine_adjacent_elements(elist, info=True):
     '''
     Combine adjecent elements in an overal list, if they contain the same information besides
     of their lengths.
@@ -63,14 +63,18 @@ def combine_adjacent_elements(elist):
     e0_length = 0
     indices_to_be_removed = [] # store information of those indices in the original list which must be removed.
     j = 0
+    n_combined = 0
     for e in elist:
         ee = {k: v for k, v in e.items() if k != 'length'}
         if ee == e0 and j > 0:
             e['length'] = e.get('length', 0) + e0_length
             indices_to_be_removed.append(j - 1)
+            n_combined += 1
         e0_length = e.get('length', 0)
         e0 = ee
         j += 1
+    if info:
+        print (f'{n_combined} elements have been combined.')
     return [elist[j] for j in range(len(elist)) if j not in indices_to_be_removed]
 
 def _createElement(name, **parameters):
@@ -93,7 +97,7 @@ def _createElement(name, **parameters):
     elif name == 'polefaceRM':
         return polefaceRM(**parameters)
 
-def Sequence2Beamline(sequence, tol_lat=1e-6, **kwargs):
+def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, **kwargs):
     '''
     Convert a given list of elements into an accphys beamline.
     
@@ -106,7 +110,7 @@ def Sequence2Beamline(sequence, tol_lat=1e-6, **kwargs):
         Optional keyworded arguments passed to the construction of the accphys elements. In particular it
         is required to provide a beta0 (or energy) parameter.
     '''
-    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat))
+    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat), info=info)
     unique_elements = [dict(s) for s in set(frozenset(d.items()) for d in sequence_with_ordering)] # trick discussed in https://stackoverflow.com/questions/11092511/list-of-unique-dictionaries
     ordering = [unique_elements.index(e) for e in sequence_with_ordering]
     for u in unique_elements: # add user-specific parameters for the construction of elements

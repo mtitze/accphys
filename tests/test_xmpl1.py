@@ -144,7 +144,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     assert len(bl_mag2_df) == len(bl_hdm_df)
     assert all([(bl_mag2_df[k].hamiltonian - bl_hdm_df[k].hamiltonian).above(tolerances3[k]) == 0 for k in range(len(bl_hdm_df))])    
     
-    tolerances4 = [1e-14, 1e-14, 5e-3, 3e-3, 3e-3, 3e-3]
+    tolerances4 = [1e-14, 1e-14, 5e-4, 3e-3, 3e-3, 3e-3]
     # since the higher-order values differ more significantly, we use relative errors
     assert len(bl_mag2_df) == len(part1_df)
     for k in range(len(bl_mag2_df)):

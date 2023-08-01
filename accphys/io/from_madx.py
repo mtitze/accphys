@@ -67,7 +67,7 @@ def MadxElement2Elements(element, **kwargs):
     
     # ------------- DRIFT -------------
     if base_type == 'drift':
-        return [{'name': 'drift', 'length': length}], [element.position]
+        return [{'name': 'drift', 'length': length}], [element.position] # element.position gives the position at the entrance to the respective element (here: drift).
         
     # ------------- DIPEDGE -------------
     elif base_type == 'dipedge':
@@ -139,4 +139,6 @@ def to_beamline(madx_file, **kwargs):
     Load a MAD-X lattice file and convert it to a beamline object.
     '''
     lat = load_file(madx_file)
-    return accphys.io.convert.Sequence2Beamline([e for e in lat.elements], beta0=lat.beam.beta)
+    if hasattr(lat, 'beam'):
+        _ = kwargs.setdefault('beta0', lat.beam.beta)
+    return accphys.io.convert.Sequence2Beamline([e for e in lat.elements], **kwargs)
