@@ -33,7 +33,7 @@ def load_file(madx_file, sequence=None):
         sequence = next(iter(madx.sequence))
     return madx.sequence[sequence]
 
-def MadxElement2Elements(element, **kwargs):
+def MadxElement2Elements(element, warn=True, disable_edges=True, **kwargs):
     '''
     Identify a MAD-X element and retreive the necessary information to generate one (or more) accphys element(s).
 
@@ -55,7 +55,8 @@ def MadxElement2Elements(element, **kwargs):
     madx_data = {k: v.value for k, v in element._data.items() if v.inform} # code for madx_data taken from __repr__ of cpymad elements
     length = kwargs.get('length', element._attr.get('length', madx_data.get('length', None)))
     if length == None:
-        warnings.warn(f'Length of MAD-X element "{element.name}" not defined. Assuming zero.')
+        if warn:
+            warnings.warn(f'Length of MAD-X element "{element.name}" not defined. Assuming zero.')
         length = 0
     tilt = kwargs.get('tilt', madx_data.get('tilt', 0))
 
@@ -106,7 +107,7 @@ def MadxElement2Elements(element, **kwargs):
             out_bend['name'] = 'dipole'
             out_bend['args'] = (k0,)
 
-        if (base_type == 'rbend' or 'e1' in madx_data.keys() or 'e2' in madx_data.keys()) and k0 != 0 and False: # TMP: disable edge-effects
+        if (base_type == 'rbend' or 'e1' in madx_data.keys() or 'e2' in madx_data.keys()) and k0 != 0 and not disable_edges:
             # also add pole-face rotation matrices:
             rho = 1/k0
             angle = length*k0

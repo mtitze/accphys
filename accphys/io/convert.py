@@ -4,7 +4,7 @@ import accphys
 from accphys.elements import drift, dipole, polefaceRM, cfm, quadrupole, sextupole, octupole
 from accphys.io.from_madx import MadxElement2Elements
 
-def Sequence2Elements(latticeElements, tol=0):
+def Sequence2Elements(latticeElements, tol=0, **kwargs):
     '''
     Take a lattice object and extract the necessary information out of it,
     in order to create accphys elements.
@@ -18,6 +18,15 @@ def Sequence2Elements(latticeElements, tol=0):
     tol: float, optional
         An optional parameter to detect overlaps and gaps in between the sequence. In case of gaps,
         a drift will be added. In case of overlaps, an error will be issued.
+        
+    **kwargs
+        Optional keyworded arguments passed to the underlying converter.
+        
+    Returns
+    -------
+    list
+        A list of dictionaries, each containing the essential information to create an accphys element. Hereby
+        the order of the list corresponds to the sequence (lattice) in question.
     '''
     assert tol >= 0, 'Tolerance can not be negative.'
     
@@ -30,7 +39,7 @@ def Sequence2Elements(latticeElements, tol=0):
     prev_position = 0
     chain = []
     for e in latticeElements:
-        elements, positions = converter(e)
+        elements, positions = converter(e, **kwargs)
         if len(elements) == 0:
             continue
 
@@ -63,7 +72,7 @@ def combine_adjacent_elements(elist, info=True):
     e0_length = 0
     indices_to_be_removed = [] # store information of those indices in the original list which must be removed.
     j = 0
-    n_combined = 0
+    n_combined = 0 # count the number of elements to be combined to display this number to the user later.
     for e in elist:
         ee = {k: v for k, v in e.items() if k != 'length'}
         if ee == e0 and j > 0:
@@ -73,7 +82,7 @@ def combine_adjacent_elements(elist, info=True):
         e0_length = e.get('length', 0)
         e0 = ee
         j += 1
-    if info:
+    if info and n_combined > 0:
         print (f'{n_combined} elements have been combined.')
     return [elist[j] for j in range(len(elist)) if j not in indices_to_be_removed]
 
@@ -96,8 +105,10 @@ def _createElement(name, **parameters):
         return octupole(*args, **parameters)
     elif name == 'polefaceRM':
         return polefaceRM(**parameters)
+    else:
+        raise NotImplementedError(f"Element of name '{name}' not understood.")
 
-def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, **kwargs):
+def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, warn=True, **kwargs):
     '''
     Convert a given list of elements into an accphys beamline.
     
@@ -110,10 +121,10 @@ def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, **kwargs):
         Optional keyworded arguments passed to the construction of the accphys elements. In particular it
         is required to provide a beta0 (or energy) parameter.
     '''
-    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat), info=info)
+    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat, warn=warn), info=info)
     unique_elements = [dict(s) for s in set(frozenset(d.items()) for d in sequence_with_ordering)] # trick discussed in https://stackoverflow.com/questions/11092511/list-of-unique-dictionaries
     ordering = [unique_elements.index(e) for e in sequence_with_ordering]
     for u in unique_elements: # add user-specific parameters for the construction of elements
         u.update(**kwargs)
-    ue = [_createElement(**ee) for ee in unique_elements]
+    ue = [_createElement(warn=warn, **ee) for ee in unique_elements]
     return accphys.beamline(*ue, ordering=ordering)

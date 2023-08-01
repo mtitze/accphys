@@ -46,7 +46,7 @@ class hard_edge_element:
             a = args[0]
             if isinstance(a, poly):
                 self.hamiltonian = a
-                self.setOperator()
+                self.setOperator(warn=warn)
             elif isinstance(a, lexp):
                 self.operator = a
                 length = getattr(self, 'length', 1)
@@ -64,7 +64,7 @@ class hard_edge_element:
             warnings.warn("Hamiltonian not set.")
 
         if hasattr(self, 'hamiltonian'): # even if self.operator exists, overwrite it
-            self.setOperator()
+            self.setOperator(warn=warn)
                     
     def project(self, *projection, tol_drop=0, **kwargs):
         '''
@@ -92,7 +92,7 @@ class hard_edge_element:
                 new_fields[k] = deepcopy(v)
         return self.__class__(warn=False, **new_fields)
         
-    def setOperator(self, **kwargs):
+    def setOperator(self, warn=True):
         '''
         Set the respective Lie-operator representing the current hard-edge model.
 
@@ -109,7 +109,8 @@ class hard_edge_element:
             self.operator = lexp(-self.hamiltonian*length)
         else:
             # lengths of 'thin-lens' elements are ignored.
-            warnings.warn('Lie-operator of thin element set to "lexp(-hamiltonian)".')  
+            if warn:
+                warnings.warn('Lie-operator of thin element set to "lexp(-hamiltonian)".')  
             self.operator = lexp(-self.hamiltonian)
         
     def apply(self, *args, **kwargs):
@@ -167,7 +168,7 @@ class hard_edge_element:
         # overwrite n_slices if user provides a 'step' parameter
         if 'step' in kwargs.keys():
             length = getattr(self, 'length', 1)
-            n_slices = int(np.ceil(length/kwargs['step']))
+            n_slices = min([1, int(np.ceil(length/kwargs['step']))])
             _ = kwargs.pop('step')
         assert n_slices >= 1
         
