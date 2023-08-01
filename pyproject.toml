@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "accphys"
-version = "0.1.0"
+version = "0.1.1"
 description = "Analyze non-linear single-particle storage ring dynamics"
 authors = ["Malte Titze <mtitze@users.noreply.github.com>"]
 license = "GPL v3"
