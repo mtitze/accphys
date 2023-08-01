@@ -168,7 +168,7 @@ class hard_edge_element:
         # overwrite n_slices if user provides a 'step' parameter
         if 'step' in kwargs.keys():
             length = getattr(self, 'length', 1)
-            n_slices = min([1, int(np.ceil(length/kwargs['step']))])
+            n_slices = max([1, int(np.ceil(length/kwargs['step']))])
             _ = kwargs.pop('step')
         assert n_slices >= 1
         
