@@ -33,7 +33,7 @@ def load_file(madx_file, sequence=None):
         sequence = next(iter(madx.sequence))
     return madx.sequence[sequence]
 
-def MadxElement2Elements(element, warn=True, disable_edges=True, **kwargs):
+def MadxElement2Elements(element, warn=True, disable_edges=False, **kwargs):
     '''
     Identify a MAD-X element and retreive the necessary information to generate one (or more) accphys element(s).
 

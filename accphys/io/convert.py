@@ -119,9 +119,9 @@ def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, warn=True, **kwargs):
         
     **kwargs
         Optional keyworded arguments passed to the construction of the accphys elements. In particular it
-        is required to provide a beta0 (or energy) parameter.
+        may be required to provide a beta0 (or energy) parameter.
     '''
-    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat, warn=warn), info=info)
+    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat, warn=warn, **kwargs), info=info)
     unique_elements = [dict(s) for s in set(frozenset(d.items()) for d in sequence_with_ordering)] # trick discussed in https://stackoverflow.com/questions/11092511/list-of-unique-dictionaries
     ordering = [unique_elements.index(e) for e in sequence_with_ordering]
     for u in unique_elements: # add user-specific parameters for the construction of elements

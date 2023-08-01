@@ -7,7 +7,7 @@ from lieops.solver.splitting import yoshida, recursive_monomial_split
 from accphys import beamline
 
 lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
-seq = madx2beamline(lattice_file=lattice_file)
+seq = madx2beamline(lattice_file=lattice_file, disable_edges=True)
 
 def test_splitting(tol1=2e-10, tol2=5e-7, tol3=5e-15):
     '''
