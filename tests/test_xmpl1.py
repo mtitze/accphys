@@ -66,11 +66,13 @@ def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     assert all([abs(p3[k] - p4[k]) < tol2 for k in range(2)])
     assert all([abs(p4[k] - p1[k]) < tol2 for k in range(2)])
     
-    # Test time reversability
-    part1_rev = part1[::-1]
+    # Test time reversability; we use a part of the sequence to avoid a symmetry
+    part1_p = part1[:12]
+    part1_p_rev = part1_p[::-1]
     inp = [0.001, -0.0042]
-    out1 = part1(*inp)
-    out2 = part1_rev(*[o.conjugate() for o in out1]) # conjugate means going backwards in time, i.e. reverting the direction of the momenta.
+    out1 = part1_p(*inp)
+    out2 = part1_p_rev(*[o.conjugate() for o in out1]) # conjugate means going backwards in time, i.e. reverting the direction of the momenta.
+
     assert all([abs(out2[k] - inp[k]) < tol3 for k in range(2)])
     
 @pytest.mark.parametrize("q0, p0", [(0, 0)])

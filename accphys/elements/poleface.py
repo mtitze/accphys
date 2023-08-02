@@ -29,20 +29,29 @@ class polefaceRM(hard_edge_element):
         
         self.rho = rho
         self.phi = phi
-        self._htp = np.tan(phi)/self.rho
+        self._tan_rho = np.tan(phi)/self.rho
         self.length = 0
         hard_edge_element.__init__(self, **kwargs)
     
     def calcHamiltonian(self, **kwargs):
+        # Matrix according to Ref. [1], given in terms of (q, p)-coordinates
+        self._matrix_qp = np.array([[1, 0, 0, 0, 0, 0],
+                                    [0, 1, 0, 0, 0, 0],
+                                    [0, 0, 1, 0, 0, 0],
+                                    [self._tan_rho, 0, 0, 1, 0, 0],
+                                    [0, -self._tan_rho, 0, 0, 1, 0],
+                                    [0, 0, 0, 0, 0, 1]])
         
-        pfrm = [[1, 0, 0, 0, 0, 0],
-                [0, 1, 0, 0, 0, 0],
-                [0, 0, 1, 0, 0, 0],
-                [self._htp, 0, 0, 1, 0, 0],
-                [0, -self._htp, 0, 0, 1, 0],
-                [0, 0, 0, 0, 0, 1]]
+        # Transform the above matrix, into (xi, eta)-coordinates by means of the unitary matrix U:
+        U = np.array([[1, 0, 0, 1j, 0, 0], 
+                      [0, 1, 0, 0, 1j, 0],
+                      [0, 0, 1, 0, 0, 1j],
+                      [1, 0, 0, -1j, 0, 0],
+                      [0, 1, 0, 0, -1j, 0],
+                      [0, 0, 1, 0, 0, -1j]])/np.sqrt(2)
+        self._matrix_xieta = U@self._matrix_qp@U.transpose().conjugate()
                 
-        h0 = logm(np.array(pfrm).transpose()) # The reason why the transpose has been used is explained in lieops.core.dragt.py
+        h0 = -logm(np.array(self._matrix_xieta).transpose()) # The reason why the transpose has been used is explained in lieops.core.dragt.py
         self.hamiltonian = ad2poly(h0)
         
         
