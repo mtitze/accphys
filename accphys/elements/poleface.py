@@ -51,14 +51,14 @@ class polefaceRM(hard_edge_element):
                       [0, 0, 1, 0, 0, -1j]])/np.sqrt(2)
         self._matrix_xieta = U@self._matrix_qp@U.transpose().conjugate()
                 
-        h0 = logm(self._matrix_xieta.transpose()) # The reason why the transpose has been used is explained in lieops.core.dragt.py
+        h0 = logm(self._matrix_xieta.transpose()) # The reason why the transpose has been used is because the ad2poly routine (below) is given with respect to the transpose matrix (in order that the adjoint composition is compatible with matrix multiplication. See also the discussion and references in lieops.core.dragt.py).
         self.hamiltonian = -ad2poly(h0) 
         # Some remarks:
-        # h0 is the Hamiltonian in terms of complex xi/eta coordinates.
+        # H0 := self.hamiltonian is the Hamiltonian in terms of complex xi/eta coordinates.
         # The equations of motion thus have the form
-        # dz_j/dt = {z_j, h0}_(xi/eta)
-        # Note that the 'real' Hamiltonian Hr would be related to h0 by Hr*-1j = h0, since the complex structure in 
+        # dz_j/dt = {z_j, H0}_(xi/eta)
+        # Note that the 'real' Hamiltonian Hr would be related to H0 by Hr*-1j = H0, since the complex structure in 
         # xi/eta coordinates is differently:
         # dz_j/dt = -1j*{z_j, Hr}_(xi/eta)
-        # For this reason, the minus sign in the above line is required, to transform into dz_j/dt = {-h0, z_j}.
+        # For this reason, the minus sign in the above line is required, to transform into dz_j/dt = {-H0, z_j}.
         
