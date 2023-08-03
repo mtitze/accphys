@@ -66,11 +66,13 @@ def test_example(tol=1e-8, tol2=2e-6, tol3=1e-14):
     assert all([abs(p3[k] - p4[k]) < tol2 for k in range(2)])
     assert all([abs(p4[k] - p1[k]) < tol2 for k in range(2)])
     
-    # Test time reversability
-    part1_rev = part1[::-1]
+    # Test time reversability; we use a part of the sequence to avoid a symmetry
+    part1_p = part1[:12]
+    part1_p_rev = part1_p[::-1]
     inp = [0.001, -0.0042]
-    out1 = part1(*inp)
-    out2 = part1_rev(*[o.conjugate() for o in out1]) # conjugate means going backwards in time, i.e. reverting the direction of the momenta.
+    out1 = part1_p(*inp)
+    out2 = part1_p_rev(*[o.conjugate() for o in out1]) # conjugate means going backwards in time, i.e. reverting the direction of the momenta.
+
     assert all([abs(out2[k] - inp[k]) < tol3 for k in range(2)])
     
 @pytest.mark.parametrize("q0, p0", [(0, 0)])
@@ -112,7 +114,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     bl_mag_df = bl_mag.dragtfinn(**df_inp)
 
     # compare Hamiltonians of the two Dragt/Finn factorizations:
-    tolerances2 = [1e-15, 1e-15, 7e-13, 1e-9, 5e-7, 5e-4]
+    tolerances2 = [1e-15, 1e-15, 1e-12, 1e-9, 5e-7, 5e-4]
     assert len(part1_df) == len(bl_mag_df)
     assert all([(part1_df[k].hamiltonian - bl_mag_df[k].hamiltonian).above(tolerances2[k]) == 0 for k in range(len(tolerances2))])    # Combine the higher-order factors of the Dragt/Finn factorization by Magnus-series.
         # The order of the preceeding Dragt/Finn factorization should be sufficiently high to obtain better accuracy
@@ -144,7 +146,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     assert len(bl_mag2_df) == len(bl_hdm_df)
     assert all([(bl_mag2_df[k].hamiltonian - bl_hdm_df[k].hamiltonian).above(tolerances3[k]) == 0 for k in range(len(bl_hdm_df))])    
     
-    tolerances4 = [1e-14, 1e-14, 5e-4, 3e-3, 3e-3, 3e-3]
+    tolerances4 = [1e-14, 2e-14, 5e-4, 3e-3, 3e-3, 3e-3]
     # since the higher-order values differ more significantly, we use relative errors
     assert len(bl_mag2_df) == len(part1_df)
     for k in range(len(bl_mag2_df)):

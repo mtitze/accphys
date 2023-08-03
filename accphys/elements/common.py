@@ -46,7 +46,7 @@ class hard_edge_element:
             a = args[0]
             if isinstance(a, poly):
                 self.hamiltonian = a
-                self.setOperator()
+                self.setOperator(warn=warn)
             elif isinstance(a, lexp):
                 self.operator = a
                 length = getattr(self, 'length', 1)
@@ -64,7 +64,7 @@ class hard_edge_element:
             warnings.warn("Hamiltonian not set.")
 
         if hasattr(self, 'hamiltonian'): # even if self.operator exists, overwrite it
-            self.setOperator()
+            self.setOperator(warn=warn)
                     
     def project(self, *projection, tol_drop=0, **kwargs):
         '''
@@ -92,26 +92,47 @@ class hard_edge_element:
                 new_fields[k] = deepcopy(v)
         return self.__class__(warn=False, **new_fields)
         
-    def setOperator(self, **kwargs):
+    def setOperator(self, warn=True, poisson_factor=-1):
         '''
         Set the respective Lie-operator representing the current hard-edge model.
+        
+        If H denotes the Hamiltonian of the element, then it holds in (complex) xi/eta-coordinates:
+           dz_j/dt = -1j {z_j, H} ,     
+        where the Poisson-bracket is taken with respect to xi/eta. Usually the Hamiltonian H
+        is already cast into its xi/eta-form: H0 := -1j*H. Then the above reads:
+           dz_j/dt = {z_j, H0} .
+        This system has the formal solution
+           z_j^(final) = exp(-:H0:*length) z_j^(initial) .     
+        This routine will construct a Lie-operator with the above argument.
+        
+        Parameters
+        ----------
+        warn: boolean, optional
+            Show a warning in case of thin-lens elements.
+            
+        poisson_factor: float, optional
+            The factor in front of the Hamiltonian to be multiplied with. By default this factor is "-1", as
+            outlined above, but could in principle be also changed to "1j" or another value.
+            In its default setting, is therefore important that the Hamiltonian is cast with respect
+            to its complex xi/eta-coordinates.
 
         Atttention: 
         1) If a length is provided to the current model, this length will
            be taken into account when setting the Lie-operator:
-           operator = lexp(-hamiltonian*length)
+           operator = lexp(psfactor*hamiltonian*length)
         2) If the element has length 0, then the length will be ignored and a warning will
            be issued.
-           operator = lexp(-hamiltonian)
+           operator = lexp(psfactor*hamiltonian)
         '''
         assert hasattr(self, 'hamiltonian'), 'Current element has no Hamiltonian set.'
         length = getattr(self, 'length', 1)
         if length != 0:
-            self.operator = lexp(-self.hamiltonian*length)
+            self.operator = lexp(self.hamiltonian*length*poisson_factor)
         else:
             # lengths of 'thin-lens' elements are ignored.
-            warnings.warn('Lie-operator of thin element set to "lexp(-hamiltonian)".')  
-            self.operator = lexp(-self.hamiltonian)
+            if warn:
+                warnings.warn('Lie-operator of thin element set to "lexp(-hamiltonian)".')  
+            self.operator = lexp(self.hamiltonian*poisson_factor)
         
     def apply(self, *args, **kwargs):
         '''
@@ -165,11 +186,18 @@ class hard_edge_element:
         list
             A list of hard_edge_element objects, representing a slicing of the current element.
         '''
+        assert hasattr(self, 'length'), "Element splitting requires 'length' attribute to be set."
+        length = getattr(self, 'length')
+        
         # overwrite n_slices if user provides a 'step' parameter
         if 'step' in kwargs.keys():
-            length = getattr(self, 'length', 1)
-            n_slices = int(np.ceil(length/kwargs['step']))
+            n_slices = max([1, int(np.ceil(length/kwargs['step']))])
             _ = kwargs.pop('step')
+        # elements of length 0 can not be splitted
+        if length == 0:
+            warnings.warn('Element of length 0 will not be splitted.')
+            n_slices = 1
+            
         assert n_slices >= 1
         
         if 'method' in kwargs.keys():
@@ -189,7 +217,7 @@ class hard_edge_element:
         
     def _split_into_slices(self, n_slices: int=1, **kwargs):
         new_elements = [self.copy()]*n_slices
-        length = getattr(self, 'length', 1)
+        length = getattr(self, 'length')
         for e in new_elements:
             e.length = length/n_slices
             e.setOperator()
@@ -229,7 +257,7 @@ class hard_edge_element:
             # len(scheme) even or n_slices == 1
             new_scheme = scheme*n_slices
 
-        length = getattr(self, 'length', 1)
+        length = getattr(self, 'length')
         new_elements = []
         for k in range(len(new_scheme)):
             f = new_scheme[k]
@@ -285,7 +313,7 @@ class hard_edge_element:
             
         split_order = split_order*n_slices
 
-        length = getattr(self, 'length', 1)
+        length = getattr(self, 'length')
         if maintain_length:
             # We modify the Hamiltonians by using the total number of used parts, in order 
             # to maintain the overal length of the element. In principle one can also use negative 

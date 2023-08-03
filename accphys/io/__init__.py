@@ -1,2 +1,3 @@
-from .from_pandas import from_pandas
-from .from_madx import from_madx
+from .convert import Sequence2Beamline
+
+from .from_madx import to_beamline as from_madx

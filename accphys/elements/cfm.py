@@ -4,10 +4,6 @@ import warnings
 from .common import hard_edge_element
 from .drift import DriftHamiltonian
 
-# Reference(s):
-# [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
-# [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
-
 def _g(components, tilt=0):
     '''
     Compute the g-part of the cfm. Code taken in parts from my MAD-X implementation 
@@ -25,13 +21,12 @@ def _g(components, tilt=0):
     kappa = components[0].conjugate()
     barkappa = components[0]
 
-    nord = len(components) - 1
-    # Now fill up the g_{ij}'s for j = 0, ..., i and i = 0, ..., nord + 1.
+    # Now fill up the g_{ij}'s for j = 0, ..., i and i = 0, ..., len(components) - 1.
     g = {}
     g[(0, 0)] = 0
     g[(1, 0)] = -barkappa
     g[(1, 1)] = -kappa # = g[(1, 0)].conjugate()
-    for k in range(1, nord + 1):
+    for k in range(1, len(components) + 1): # k reflects the order up to which we consider the G-function
         for j in range(k):
             # Eq. (6), in Ref. [1]
             g[(k + 1, j + 1)] = ( barkappa*g[(k, j + 1)]*(j + 1)*(j - k + 3/2) + 
@@ -40,8 +35,16 @@ def _g(components, tilt=0):
         sum0 = 0
         for j in range(1, k + 1):
             sum0 = sum0 - (k + 1 - j)*g[(k + 1, j)]*exp(-tilt*2*1j*j)
-        g[(k + 1, 0)] = ( sum0 - 2**k*exp(-tilt*1j*k)*( components[k] 
-                        + 1/2*(barkappa*exp(tilt*1j) + kappa*exp(tilt*-1j))*components[k - 1] ) )/(k + 1)
+
+        g[(k + 1, 0)] = sum0/(k + 1)
+        # Add additional contributions from components, if they exist.
+        if k < len(components) + 1:
+            real = (barkappa*exp(tilt*1j) + kappa*exp(tilt*-1j))/2 # = Re(barkappa*exp(tilt*1j))
+            fk = -2**k*exp(tilt*-1j*k)
+            g[(k + 1, 0)] += fk*real*components[k - 1]/(k + 1)
+            if k < len(components):
+                g[(k + 1, 0)] += fk*components[k]/(k + 1)
+
         g[(k + 1, k + 1)] = g[(k + 1, 0)].conjugate()
     return g
 
@@ -107,6 +110,11 @@ def CFMHamiltonian(components, tilt=0, tol_drop=0, **kwargs):
             The G-components in Ref. [1]
 
         So that H = H_drift + H_field.
+        
+    References
+    ----------
+    [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+    [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
     '''
     # Compute the Hamiltonian of the drift
     DH = DriftHamiltonian(tol_drop=tol_drop, **kwargs)
@@ -173,9 +181,16 @@ def _map(CFMH, x, y, sigma, px, py, psigma, ds):
     
     Parameters
     ----------
-        CFMH: The output of CFMHamiltonian, containing the Hamiltonian of the combined-function-magnet and additional information.
+    CFMH: dict
+        The output of CFMHamiltonian, containing the Hamiltonian of the combined-function-magnet and additional information.
     
-        ds: \delta_s according to Eq. (2.33) in Ref. [2].
+    ds: float
+        \delta_s according to Eq. (2.33) in Ref. [2].
+        
+    References
+    ----------
+    [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+    [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
     '''
     dx_G_map, dy_G_map = CFMH['dx_G'], CFMH['dy_G']
     
@@ -216,7 +231,7 @@ def _map(CFMH, x, y, sigma, px, py, psigma, ds):
 
 
 class cfm(hard_edge_element):
-    def __init__(self, components=[0], tilt=0, _addzero=True, warn=True, **kwargs):
+    def __init__(self, components=[0], tilt=0, warn=True, **kwargs):
         '''
         Class to model a combined-function-magnetc (cfm).
 
@@ -243,21 +258,16 @@ class cfm(hard_edge_element):
             the resulting object describes a physical dipole. The reason is that (internally) the order of the G-function
             in Ref. [2] has to be at least 2 or higher (see the topmost Eq. on p.53 in Ref. [2]). To suppress this behaviour,
             the switch _addzero can be set to False.
-            
-        _addzero: boolean, optional
-            Suppress the addition of a zero to the list of components in the case that len(components) = 1.
-            
+                        
         tilt: float, optional
             The tilt between the dipole component and the higher-order magnet components of the cfm.
             
-        Reference(s)
-        ------------
-            [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
-            [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
+        References
+        ----------
+        [1] M. Titze: "Approach to Combined-function magnets via symplectic slicing", Phys. Rev. STAB 19 054002 (2016)
+        [2] M. Titze: "Space Charge Modeling at the Integer Resonance for the CERN PS and SPS", PhD Thesis (2019)
         '''
         assert len(components) > 0
-        if len(components) == 1 and _addzero:
-            components = [components[0], 0] # see explanation in the docs above (components, part 2)
         self.components = components
         self.tilt = tilt
         hard_edge_element.__init__(self, warn=False, **kwargs)
