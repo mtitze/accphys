@@ -104,6 +104,7 @@ class hard_edge_element:
            be issued.
            operator = lexp(-hamiltonian)
         '''
+        assert hasattr(self, 'hamiltonian'), 'Current element has no Hamiltonian set.'
         length = getattr(self, 'length', 1)
         if length != 0:
             self.operator = lexp(-self.hamiltonian*length)

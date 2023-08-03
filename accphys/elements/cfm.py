@@ -53,6 +53,28 @@ def CFMHamiltonian(components, tilt=0, tol_drop=0, **kwargs):
 
     Parameters
     ----------
+    components: list, optional
+        A list of complex entries, denoting the components of the cfm field.
+        The components are hereby given with respect to a transversal axis, tilted against the Serre-Frenet
+        coordinate system by an angle of choice (see tilt parameter below and Eq. (2.40) in Ref. [2]).
+
+        If K_x = 0 this transverse axis smears out a cone. The ideal trajectory is hereby given by a horizontal
+        cut of the cone with a plane.
+        
+        Attention:
+        1) 
+        Additional zeros in the list will cause the routine to compute more orders of the CFM.
+        This becomes important if the cfm contains a non-zero dipole component and some other multipole components.
+        
+        2)
+        In the case of a single entry in the cfm components, an additional zero will be added internally so that
+        the resulting object describes a physical dipole. The reason is that (internally) the order of the G-function
+        in Ref. [2] has to be at least 2 or higher (see the topmost Eq. on p.53 in Ref. [2]). To suppress this behaviour,
+        the switch _addzero can be set to False.
+        
+    tilt: float, optional
+        The tilt between the dipole component and the higher-order magnet components of the cfm.
+    
     tol_drop: float, optional
         Threshold below terms in the Hamiltonian will be dropped.
     

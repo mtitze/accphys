@@ -68,6 +68,5 @@ def from_madx(filename, beta0, **kwargs):
         component_labels = [bend_kx_label]
         component_indices = [0]
 
-
     return from_pandas(raw_df, beta0=beta0, position_label=position_label, length_label=length_label, component_indices=component_indices,
                        component_labels=component_labels, position=kwargs.get('position', _default_position), **kwargs)
