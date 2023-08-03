@@ -7,7 +7,7 @@ from lieops.solver.splitting import yoshida, recursive_monomial_split
 from accphys import beamline
 
 lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
-seq = madx2beamline(lattice_file=lattice_file, disable_edges=True)
+seq = madx2beamline(lattice_file=lattice_file)
 
 def test_splitting(tol1=2e-10, tol2=5e-7, tol3=5e-15):
     '''
@@ -146,7 +146,7 @@ def test_dragtfinn(q0, p0, order=6, tol=5e-5, magnus_order=6):
     assert len(bl_mag2_df) == len(bl_hdm_df)
     assert all([(bl_mag2_df[k].hamiltonian - bl_hdm_df[k].hamiltonian).above(tolerances3[k]) == 0 for k in range(len(bl_hdm_df))])    
     
-    tolerances4 = [1e-14, 1e-14, 5e-4, 3e-3, 3e-3, 3e-3]
+    tolerances4 = [1e-14, 2e-14, 5e-4, 3e-3, 3e-3, 3e-3]
     # since the higher-order values differ more significantly, we use relative errors
     assert len(bl_mag2_df) == len(part1_df)
     for k in range(len(bl_mag2_df)):
