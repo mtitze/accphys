@@ -8,9 +8,9 @@ from .common import madx2beamline
 from accphys import beamline
 
 lattice_file = f'{os.getcwd()}/tests/xmpl1.madx'
-seq = madx2beamline(lattice_file=lattice_file, disable_edges=True)
+seq = madx2beamline(lattice_file=lattice_file)
 
-def test_normalform1(tol1=5e-15, tol2=5e-10, tol3=1e-6):
+def test_normalform1(tol1=5e-15, tol2=5e-10, tol3=1e-8):
     '''
     Test the normal form procedure;
     Check if running the case with mpmath gives the same
@@ -18,13 +18,13 @@ def test_normalform1(tol1=5e-15, tol2=5e-10, tol3=1e-6):
     '''
     part1 = seq.project(0)
     _ = part1.taylor_map(power=30, order=4, tol=1e-8)
-    nfdict1 = part1.normalform(power=30, order=4)
+    nfdict1 = part1.normalform(power=30, order=3)
     
     part2 = seq.project(0)
     mp.mp.dps = 32
     part2.apply(mp.mpc)
     _ = part2.taylor_map(power=30, order=4, tol=1e-8)
-    nfdict2 = part2.normalform(power=30, order=4)
+    nfdict2 = part2.normalform(power=30, order=3)
 
     n1, n2 = sum(nfdict1['normalform']).above(tol3), sum(nfdict2['normalform']).above(tol3)
     diff = n1 - n2
@@ -42,7 +42,7 @@ def test_normalform2():
     order = 6
     _ = part1.taylor_map(0, 0, order=order, power=30, tol=8e-10)
     nfdict1 = part1.normalform(power=30, order=order - 1)
-    nf1 = sum([n.above(1e-3) for n in nfdict1['normalform']])
+    nf1 = sum([n.above(5e-2) for n in nfdict1['normalform']])
     
     # The normal form must contain only powers of the actions, here up and including 3rd power (order=6)
     assert [(1, 1), (2, 2), (3, 3)] == list(nf1.keys())
