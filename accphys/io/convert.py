@@ -62,6 +62,9 @@ def combine_adjacent_elements(elist, info=True):
     ----------
     elist: list
         A list of dictionaries, each containing information for the construction of an accphys element.
+
+    info: boolean, optional
+        Display some information.
         
     Returns
     -------
@@ -108,7 +111,7 @@ def _createElement(name, **parameters):
     else:
         raise NotImplementedError(f"Element of name '{name}' not understood.")
 
-def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, warn=True, **kwargs):
+def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, warn=True, combine=True, **kwargs):
     '''
     Convert a given list of elements into an accphys beamline.
     
@@ -116,12 +119,28 @@ def Sequence2Beamline(sequence, tol_lat=1e-6, info=True, warn=True, **kwargs):
     ----------
     tol_lat: float, optional
         Tolerance given to combined_adjacent_elements routine.
+
+    info: boolean, optional
+        Display some information.
+
+    warn: boolean, optional
+        Toggle on/off warnings.
+
+    combine: boolean, optional
+        Combine adjacent elements with identical parameters.
         
     **kwargs
         Optional keyworded arguments passed to the construction of the accphys elements. In particular it
         may be required to provide a beta0 (or energy) parameter.
+
+    Returns
+    -------
+    beamline
+        An accphys beamline object.
     '''
-    sequence_with_ordering = combine_adjacent_elements(Sequence2Elements(sequence, tol=tol_lat, warn=warn, **kwargs), info=info)
+    sequence_with_ordering = Sequence2Elements(sequence, tol=tol_lat, warn=warn, **kwargs)
+    if combine:
+        sequence_with_ordering = combine_adjacent_elements(sequence_with_ordering, info=info)
     unique_elements = [dict(s) for s in set(frozenset(d.items()) for d in sequence_with_ordering)] # trick discussed in https://stackoverflow.com/questions/11092511/list-of-unique-dictionaries
     ordering = [unique_elements.index(e) for e in sequence_with_ordering]
     for u in unique_elements: # add user-specific parameters for the construction of elements
