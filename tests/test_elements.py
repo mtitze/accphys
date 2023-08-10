@@ -1,9 +1,11 @@
 import pytest
 import numpy as np
+from scipy.linalg import expm
 
-from lieops import create_coords
+from lieops import create_coords, lexp
+from lieops.core.tools import poly2ad
 
-from accphys.elements import cfm, quadrupole
+from accphys.elements import cfm, quadrupole, polefaceRM
 
 '''
     Reference(s):
@@ -69,3 +71,24 @@ def test_quad(gstr, beta0=0.9664):
     assert (x**2 - y**2)*(-gstr/2) == quad.G
     assert -gstr*x == quad.dx_G
     assert gstr*y == quad.dy_G
+    
+
+@pytest.mark.parametrize("rho, phi, inp", [(-24.57687739223107, -0.0033161251, [0.1, -2.2, 0.42, 0.62, 1.1, -0.23])])
+def test_polefaceRM(rho, phi, inp, tol=1e-15):
+    '''
+    Test pole-face rotation matrix element; we test here
+    if the matrix applied to some point yields the same
+    result as the calculated flow from the underlying Lie-
+    operator.
+    '''
+    edge = polefaceRM(rho=rho, phi=phi)
+    ref0 = edge._matrix_xieta@np.array(inp)
+    out1 = np.array(lexp(-edge.hamiltonian)(*inp, power=2)) # low power is sufficient because higher-order terms in the exponential series are zero here
+    mat = expm(poly2ad(-edge.hamiltonian).transpose())
+    out2 = mat@np.array(inp)
+    out3 = edge(*inp, power=2)
+    
+    assert max(np.abs(ref0 - out1)) < tol
+    assert max(np.abs(ref0 - out2)) < tol
+    assert max(np.abs(ref0 - out3)) < tol
+    

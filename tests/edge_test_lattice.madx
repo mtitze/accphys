@@ -1,0 +1,60 @@
+energy = 2.500000;
+pi = 4.0*arctan(1.0);
+c0 = 2.99792458e8;
+!
+!----- variables ----------------------------------------------------
+!
+b2a   = -0.38;
+b1a   = 4.25-2.0*b2a;
+mb2a  = -0.160989817118871;
+mb1a  = 2.75-mb2a;
+dtor  = 0.01745329;
+!
+!----- table of elements ----------------------------------------------------
+!
+l1     : drift, l = 0.100000;
+ml1    : drift, l = 0.100000;
+ml1a   : drift, l = 0.260000;
+ml1b   : drift, l = 0.100000;
+ul1    : drift, l = 0.100000;
+ul2    : drift, l = 0.258148;
+ul3    : drift, l = 0.300000;
+ul4    : drift, l = 2.800000;
+!
+uq1    : quadrupole, l = 0.165000, k1 = -9.351823;
+uq2    : quadrupole, l = 0.200000, k1 = 9.224287;
+uq3    : quadrupole, l = 0.100000, k1 = -3.051951;
+!
+b1     : sbend, l = 1.100000, angle = (b1a)*dtor, k1 = -1.199036,
+         e1 = (b1a/2.0)*dtor, e2 = (b1a/2.0)*dtor;
+b2     : sbend, l = 0.163000, angle = (b2a)*dtor, k1 = 6.190683,
+         e1 = (b2a/2.0)*dtor, e2 = (b2a/2.0)*dtor;
+mb1    : sbend, l = 0.600000, angle = (mb1a)*dtor, k1 = 0.000000,
+         e1 = (mb1a/2.0)*dtor, e2 = (mb1a/2.0)*dtor;
+mb2    : sbend, l = 0.163000, angle = (mb2a)*dtor, k1 = 6.476866,
+         e1 = (mb2a/2.0)*dtor, e2 = (mb2a/2.0)*dtor;
+!
+s1     : sextupole, l = 0.180000, k2 = -564.676858;
+s2     : sextupole, l = 0.130000, k2 = 450.270350;
+s1a    : sextupole, l = 0.180000, k2 = 0.000000;
+!
+om_s2  : marker;
+om_mb1 : marker;
+om_c   : marker;
+!
+!
+!----- table of segments ----------------------------------------------------
+!
+ucell : line=(om_s2, s2, l1, b2, l1, s1, l1, b1, l1, s1, l1, b2, l1, s2,
+        om_s2);
+dcell : line=(om_s2, s2, ml1, mb2, ml1b, s1a, ml1a, mb1, om_mb1);
+arc   : line=(-dcell, 2*ucell, om_c, 2*ucell, dcell);
+mund  : line=(om_mb1, ul1, uq1, ul2, uq2, ul3, uq3, ul4);
+sec   : line=(-mund, arc, mund);
+!sech  : line=(om_c, 2*ucell, dcell, mund);
+!sec16 : line=(-mund, arc, mund);
+!ring  : line=(16*sec);
+!
+beam, particle = electron, energy = 2.5;
+!
+use, sequence = sec;

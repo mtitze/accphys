@@ -1,0 +1,29 @@
+option, echo=false;
+
+call, file='./edge_test_lattice.madx';
+
+twiss;
+
+! *** Option 1: WITH rectangular-bend dipole edges ***
+! SELECT, FLAG=makethin, THICK=true, SLICE=16;
+! MAKETHIN, SEQUENCE=sec, STYLE=teapot, MAKEDIPEDGE=true; 
+
+! *** Option 2: WITHOUT rectangular-bend dipole edges ***
+SELECT, FLAG=makethin, THICK=false, SLICE=64; ! slices should be taken sufficiently high to reach good tracking agreement in islands
+MAKETHIN, SEQUENCE=sec, STYLE=teapot, MAKEDIPEDGE=false;
+
+use, sequence=sec;
+
+twiss;
+
+TRACK, DELTAP=0, ONEPASS=true, DAMP=false, DUMP=true, UPDATE=false,
+ONETABLE=false, RECLOSS=false, APERTURE=false;
+
+! START, X=3.2E-3, PX=0, Y=0, PY=0, T=0, PT=0; ! option 1
+START, X=2E-3, PX=0, Y=0, PY=0, T=0, PT=0; ! option 2
+
+RUN, TURNS=200; ! MAXAPER=double array, FFILE=integer;
+
+ENDTRACK;
+
+stop;

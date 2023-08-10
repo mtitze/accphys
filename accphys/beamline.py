@@ -277,14 +277,14 @@ class beamline:
         assert all([hasattr(e, 'operator') for e in self])
         return [e.operator for e in self]
     
-    def track(self, *xieta, n_reps: int=1, post=lambda *x: x, real=False,
+    def track(self, *xieta, turns: int=1, post=lambda *x: x, real=False,
               output_format='default', record=False, **kwargs):
         '''
         Perform tracking for a given number of repetitions.
 
         Parameters
         ----------
-        n_reps: int
+        turns: int
             The number of repetitions.
 
         xieta: The start vector (xi, eta).
@@ -350,7 +350,7 @@ class beamline:
         point = xieta
         points = []
         all_out = []
-        for k in tqdm(range(n_reps), disable=kwargs.get('disable_tqdm', False)):
+        for k in tqdm(range(turns), disable=kwargs.get('disable_tqdm', False)):
             point = self(*point, **kwargs)
             points.append(post_used(*point))
             if record:
@@ -361,7 +361,7 @@ class beamline:
         if output_format in ['default', 'list']:
             return points
         elif output_format in ['coords', 'transposed']:
-            return (*[[points[k][j] for k in range(n_reps)] for j in range(dim2)],)
+            return (*[[points[k][j] for k in range(turns)] for j in range(dim2)],)
     
     def __str__(self):
         outstr = ''
