@@ -3,7 +3,7 @@ from njet.common import factorials
 import accphys
 from cpymad.madx import Madx
 
-def load_file(madx_file, sequence=None):
+def load_file(madx_file):
     '''
     Load a MAD-X file and retrun its cpymad lattice.
     
@@ -12,13 +12,9 @@ def load_file(madx_file, sequence=None):
     madx_file: str
         The location of the MAD-X lattice file.
         
-    sequence: str, optional
-        The name of the sequence to be returned. If nothing provided, it is
-        assumed that the MAD-X file contains a single sequence.
-        
     Returns
     -------
-    cpymad.madx.sequence
+    cpymad.madx object
     '''
     madx = Madx()
     madx.option(echo=False)
@@ -27,11 +23,8 @@ def load_file(madx_file, sequence=None):
 
     # load lattice
     madx.call(madx_file)
-    seqd = madx.sequence
-    if sequence == None:
-        assert len(seqd) == 1, f'Sequence not specified: {seqd.keys()}'
-        sequence = next(iter(madx.sequence))
-    return madx.sequence[sequence]
+    madx._filename = madx_file
+    return madx
 
 def MadxElement2Elements(element, warn=True, disable_edges=False, **kwargs):
     '''
@@ -135,11 +128,31 @@ def MadxElement2Elements(element, warn=True, disable_edges=False, **kwargs):
             warnings.warn(f'Element of type {base_type} not implemented.')
         return [], [element.position]
 
-def to_beamline(madx_file, **kwargs):
+def to_beamline(madx_file, sequence=None, **kwargs):
     '''
     Load a MAD-X lattice file and convert it to a beamline object.
+    
+    
+    Parameters
+    ----------
+    sequence: str, optional
+        The name of the sequence to be returned. If nothing provided, it is
+        assumed that the MAD-X file contains a single sequence.
     '''
-    lat = load_file(madx_file)
+    if type(madx_file) == str:
+        madx = load_file(madx_file)
+    else:
+        assert isinstance(madx_file, Madx)
+        madx = madx_file
+    
+    seqd = madx.sequence
+    if sequence == None:
+        assert len(seqd) == 1, f'Sequence not specified: {seqd.keys()}'
+        sequence = next(iter(madx.sequence))
+    lat = madx.sequence[sequence]
+    
     if hasattr(lat, 'beam'):
         _ = kwargs.setdefault('beta0', lat.beam.beta)
-    return accphys.io.convert.Sequence2Beamline([e for e in lat.elements], **kwargs)
+    out = accphys.io.convert.Sequence2Beamline([e for e in lat.elements], **kwargs)
+    out._madx = madx
+    return out
