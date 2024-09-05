@@ -6,8 +6,8 @@ authors = ["Malte Titze <mtitze@users.noreply.github.com>"]
 license = "GPL v3"
 
 [tool.poetry.dependencies]
-python = "^3.8, <3.11"
-lieops = "^0.1.1"
+python = "^3.8"
+lieops = "^0.2.3"
 scipy = "^1.8.0"
 tqdm = "^4.64.0"
 cpymad = ">=1.10.0"
